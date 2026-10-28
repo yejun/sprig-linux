@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----------------------------------------------------------------------------
-The license above covers this repository's own files: the build scripts, the
-configuration, the root file system's files in rootfs/ and the documentation.
-The patches in patches/ and busybox-patches/ change the Linux kernel and
-BusyBox and are offered under those programs' license (GPL-2.0). The images
-built from this repository contain third-party software under its own
-licenses: see THIRD_PARTY_NOTICES.md.

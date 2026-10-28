@@ -1,5 +1,9 @@
 # Third-party software
 
+This repository's own files (the build scripts, the configuration, the root file system's files in `rootfs/` and the
+documentation) are under the MIT licence in [LICENSE](LICENSE). The patches in `patches/` and `busybox-patches/`
+change the Linux kernel and BusyBox and are offered under those programs' licence, GPL-2.0.
+
 Sprig Linux's images are built from the software below; each keeps its own licence. The full licence texts are in
 the image (`/usr/share/licenses`) and, for a release, in `sprig-linux-<version>-licenses.tar.gz` beside it. The
 exact sources a release was built from are in its `sprig-linux-<version>-sources.tar` (this repository and every
@@ -21,5 +25,3 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [Lua](https://www.lua.org) | 5.5.1 | MIT | the image |
 | [Tiny C Compiler](https://repo.or.cz/tinycc.git) | e23dabe | LGPL-2.1-or-later | the image |
 | [MicroPython](https://micropython.org) | 1.29.0 | MIT (parts under other permissive licences, see its LICENSE) | the image |
-
-The patches in `patches/` and `busybox-patches/` are offered under GPL-2.0, the licence of what they change.
