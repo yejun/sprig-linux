@@ -1,0 +1,14 @@
+vga16fb: a virtual screen of 816 lines (64 KB per plane at 640 wide) from the start, so that fbcon can scroll by
+panning (with FRAMEBUFFER_CONSOLE_LEGACY_ACCELERATION) instead of redrawing every character on the screen.
+
+--- a/drivers/video/fbdev/vga16fb.c
++++ b/drivers/video/fbdev/vga16fb.c
+@@ -67,7 +67,7 @@
+ 	.xres		= 640,
+ 	.yres		= 480,
+ 	.xres_virtual	= 640,
+-	.yres_virtual	= 480,
++	.yres_virtual	= 816,	/* room to pan: fbcon scrolls by moving the picture */
+ 	.bits_per_pixel	= 4,
+ 	.activate	= FB_ACTIVATE_TEST,
+ 	.height		= -1,

@@ -1,0 +1,18 @@
+fbcon: bit_putcs drew nothing at or below var.yres; with a virtual screen taller than the visible one (fbcon's
+panning, which the legacy acceleration code does), the rows below it are where the console draws. Clip at yres_virtual.
+
+--- a/drivers/video/fbdev/core/bitblit.c
++++ b/drivers/video/fbdev/core/bitblit.c
+@@ -167,10 +167,10 @@
+ 	image.height = vc->vc_font.height;
+ 	image.depth = 1;
+ 
+-	if (image.dy >= info->var.yres)
++	if (image.dy >= info->var.yres_virtual)
+ 		return;
+ 
+-	image.height = min(image.height, info->var.yres - image.dy);
++	image.height = min(image.height, info->var.yres_virtual - image.dy);
+ 
+ 	if (attribute) {
+ 		buf = kmalloc(cellsize, GFP_ATOMIC);

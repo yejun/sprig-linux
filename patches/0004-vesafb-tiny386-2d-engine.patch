@@ -1,0 +1,138 @@
+vesafb: draw with the tiny386 emulator's 2D engine when it is there (an I/O port behind its Bochs VBE interface): fills,
+copies and one-bit images (the console's text) done by the emulator instead of pixel by pixel by emulated instructions.
+Elsewhere (no engine: the port reads all ones) nothing changes.
+
+--- a/drivers/video/fbdev/vesafb.c
++++ b/drivers/video/fbdev/vesafb.c
+@@ -71,8 +71,99 @@
+ #define VBE_DISPI_IOPORT_DATA	0x1cf
+ #define VBE_DISPI_INDEX_ID	0x0
+ #define VBE_DISPI_INDEX_Y_OFFSET	0x9
++
++/*
++ * The tiny386 emulator's 2D engine: fills, copies and the console's text
++ * (one bit a pixel) drawn by the emulator, not pixel by pixel by emulated
++ * instructions. Port T386_ACCEL_PORT reads T386_ACCEL_MAGIC when it is
++ * there; an OUT of a command's physical address runs it.
++ */
++#define T386_ACCEL_PORT		0xf1e0
++#define T386_ACCEL_MAGIC	0x7386acce
++#define T386_ACCEL_FILL		1
++#define T386_ACCEL_COPY		2
++#define T386_ACCEL_MONO		3
++struct t386_accel_cmd {
++	u32 op;
++	u32 dst, pitch, width, height, bpp;
++	u32 fg, bg;
++	u32 src, src_pitch;
++	u32 rop;
++	u32 result;
++};
++static int   t386_accel __read_mostly;
+ /* --------------------------------------------------------------------- */
+ 
++/* the command run; 0: done (else draw it the usual way) */
++static int t386_run(struct t386_accel_cmd *c, struct fb_info *info)
++{
++	c->pitch = info->fix.line_length;
++	c->bpp = info->var.bits_per_pixel / 8;
++	c->result = 1;
++	barrier();
++	outl(virt_to_phys(c), T386_ACCEL_PORT);
++	barrier();
++	return READ_ONCE(c->result);
++}
++
++static u32 t386_colour(struct fb_info *info, u32 c)
++{
++	if (info->fix.visual == FB_VISUAL_TRUECOLOR ||
++	    info->fix.visual == FB_VISUAL_DIRECTCOLOR)
++		return ((u32 *)info->pseudo_palette)[c];
++	return c;
++}
++
++static u32 t386_at(struct fb_info *info, u32 x, u32 y)
++{
++	return y * info->fix.line_length + x * (info->var.bits_per_pixel / 8);
++}
++
++static void vesafb_fillrect(struct fb_info *info, const struct fb_fillrect *r)
++{
++	if (t386_accel) {
++		struct t386_accel_cmd c = {
++			.op = T386_ACCEL_FILL, .dst = t386_at(info, r->dx, r->dy),
++			.width = r->width, .height = r->height,
++			.fg = t386_colour(info, r->color), .rop = r->rop == ROP_XOR,
++		};
++		if (!t386_run(&c, info))
++			return;
++	}
++	cfb_fillrect(info, r);
++}
++
++static void vesafb_copyarea(struct fb_info *info, const struct fb_copyarea *a)
++{
++	if (t386_accel) {
++		struct t386_accel_cmd c = {
++			.op = T386_ACCEL_COPY, .dst = t386_at(info, a->dx, a->dy),
++			.src = t386_at(info, a->sx, a->sy),
++			.width = a->width, .height = a->height,
++		};
++		if (!t386_run(&c, info))
++			return;
++	}
++	cfb_copyarea(info, a);
++}
++
++static void vesafb_imageblit(struct fb_info *info, const struct fb_image *image)
++{
++	if (t386_accel && image->depth == 1 && virt_addr_valid(image->data)) {
++		struct t386_accel_cmd c = {
++			.op = T386_ACCEL_MONO, .dst = t386_at(info, image->dx, image->dy),
++			.width = image->width, .height = image->height,
++			.fg = t386_colour(info, image->fg_color),
++			.bg = t386_colour(info, image->bg_color),
++			.src = virt_to_phys((void *)image->data),
++			.src_pitch = (image->width + 7) / 8,
++		};
++		if (!t386_run(&c, info))
++			return;
++	}
++	cfb_imageblit(info, image);
++}
++
+ static int vesafb_pan_display(struct fb_var_screeninfo *var,
+                               struct fb_info *info)
+ {
+@@ -212,7 +303,11 @@
+ 
+ static struct fb_ops vesafb_ops = {
+ 	.owner		= THIS_MODULE,
+-	FB_DEFAULT_IOMEM_OPS,
++	__FB_DEFAULT_IOMEM_OPS_RDWR,
++	.fb_fillrect	= vesafb_fillrect,
++	.fb_copyarea	= vesafb_copyarea,
++	.fb_imageblit	= vesafb_imageblit,
++	__FB_DEFAULT_IOMEM_OPS_MMAP,
+ 	.fb_destroy     = vesafb_destroy,
+ 	.fb_setcolreg	= vesafb_setcolreg,
+ 	.fb_pan_display	= vesafb_pan_display,
+@@ -504,6 +599,18 @@
+ 	info->fix = vesafb_fix;
+ 	info->flags = (ypan ? FBINFO_HWACCEL_YPAN : 0);
+ 
++	/* the tiny386 emulator's 2D engine, behind its Bochs VBE interface */
++	outw(VBE_DISPI_INDEX_ID, VBE_DISPI_IOPORT_INDEX);
++	if ((inw(VBE_DISPI_IOPORT_DATA) & 0xfff0) == 0xb0c0 &&
++	    inl(T386_ACCEL_PORT) == T386_ACCEL_MAGIC &&
++	    (info->var.bits_per_pixel == 8 || info->var.bits_per_pixel == 16 ||
++	     info->var.bits_per_pixel == 32)) {
++		t386_accel = 1;
++		info->flags |= FBINFO_HWACCEL_COPYAREA | FBINFO_HWACCEL_FILLRECT |
++			       FBINFO_HWACCEL_IMAGEBLIT;
++		dev_info(&dev->dev, "drawing with the tiny386 emulator's 2D engine\n");
++	}
++
+ 	if (fb_alloc_cmap(&info->cmap, 256, 0) < 0) {
+ 		err = -ENOMEM;
+ 		goto err_release_region;

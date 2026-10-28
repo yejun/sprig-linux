@@ -1,0 +1,108 @@
+top: redraw in place: go to the top, end each line by clearing the rest of it and the last by clearing the rest of
+the screen, instead of clearing the whole screen first; on a slow terminal (a framebuffer console drawn by an
+emulated CPU) the screen went blank and filled again at every refresh.
+
+--- a/procps/top.c
++++ b/procps/top.c
+@@ -501,7 +501,7 @@
+ 				/*, SHOW_STAT(steal) - what is this 'steal' thing? */
+ 				/* I doubt anyone wants to know it */
+ 			);
+-			puts(scrbuf);
++			printf(OPT_BATCH_MODE ? "%s\n" : "%s" ESC"[K" "\n", scrbuf);
+ 		}
+ 	}
+ # undef SHOW_STAT
+@@ -582,8 +582,9 @@
+ 		meminfo[MI_MEMSHARED] + meminfo[MI_SHMEM],
+ 		meminfo[MI_BUFFERS],
+ 		meminfo[MI_CACHED]);
+-	/* Go to top & clear to the end of screen */
+-	printf(OPT_BATCH_MODE ? "%s\n" : ESC"[H" ESC"[J" "%s\n", scrbuf);
++	/* Go to top; each line clears the rest of itself, the last the rest of the screen (not all of it first: on a
++	 * slow terminal the screen would go blank and fill again each time) */
++	printf(OPT_BATCH_MODE ? "%s\n" : ESC"[H" "%s" ESC"[K" "\n", scrbuf);
+ 	(*lines_rem_p)--;
+ 
+ 	/* Display CPU time split as percentage of total time.
+@@ -596,7 +597,7 @@
+ 	open_read_close("loadavg", buf, sizeof(scrbuf) - sizeof("Load average: "));
+ 	scrbuf[scr_width - 1] = '\0';
+ 	strchrnul(buf, '\n')[0] = '\0';
+-	puts(scrbuf);
++	printf(OPT_BATCH_MODE ? "%s\n" : "%s" ESC"[K" "\n", scrbuf);
+ 	(*lines_rem_p)--;
+ 
+ 	return meminfo[MI_MEMTOTAL];
+@@ -638,7 +639,7 @@
+ #endif
+ 
+ 	/* what info of the processes is shown */
+-	printf(OPT_BATCH_MODE ? "%.*s" : ESC"[7m" "%.*s" ESC"[m", scr_width,
++	printf(OPT_BATCH_MODE ? "%.*s" : ESC"[7m" "%.*s" ESC"[m" ESC"[K", scr_width,
+ 		"  PID  PPID USER     STAT   VSZ %VSZ"
+ 		IF_FEATURE_TOP_SMP_PROCESS(" CPU")
+ 		IF_FEATURE_TOP_CPU_USAGE_PERCENTAGE(" %CPU")
+@@ -750,11 +751,15 @@
+ 		if ((int)(scr_width - col) > 1)
+ 			read_cmdline(line_buf + col, scr_width - col, s->pid, s->comm);
+ 		fputs_stdout(line_buf);
++		if (!OPT_BATCH_MODE)
++			fputs_stdout(ESC"[K");
+ 		/* printf(" %d/%d %lld/%lld", s->pcpu, total_pcpu,
+ 			cur_jif.busy - prev_jif.busy, cur_jif.total - prev_jif.total); */
+ 		s++;
+ 	}
+ 	/* printf(" %d", hist_iterations); */
++	if (!OPT_BATCH_MODE)
++		fputs_stdout(ESC"[J");
+ 	bb_putchar(OPT_BATCH_MODE ? '\n' : '\r');
+ 	fflush_all();
+ }
+@@ -840,7 +845,7 @@
+ 		meminfo[MI_ANONPAGES],
+ 		meminfo[MI_MAPPED],
+ 		meminfo[MI_MEMFREE]);
+-	printf(OPT_BATCH_MODE ? "%.*s\n" : ESC"[H" ESC"[J" "%.*s\n", scr_width, line_buf);
++	printf(OPT_BATCH_MODE ? "%.*s\n" : ESC"[H" "%.*s" ESC"[K" "\n", scr_width, line_buf);
+ 
+ 	snprintf(line_buf, LINE_BUF_SIZE,
+ 		" slab:%lu buf:%lu cache:%lu dirty:%lu write:%lu",
+@@ -849,13 +854,13 @@
+ 		meminfo[MI_CACHED],
+ 		meminfo[MI_DIRTY],
+ 		meminfo[MI_WRITEBACK]);
+-	printf("%.*s\n", scr_width, line_buf);
++	printf(OPT_BATCH_MODE ? "%.*s\n" : "%.*s" ESC"[K" "\n", scr_width, line_buf);
+ 
+ 	snprintf(line_buf, LINE_BUF_SIZE,
+ 		"Swap total:%lu free:%lu", // TODO: % used?
+ 		meminfo[MI_SWAPTOTAL],
+ 		meminfo[MI_SWAPFREE]);
+-	printf("%.*s\n", scr_width, line_buf);
++	printf(OPT_BATCH_MODE ? "%.*s\n" : "%.*s" ESC"[K" "\n", scr_width, line_buf);
+ 
+ 	(*lines_rem_p) -= 3;
+ }
+@@ -886,7 +891,7 @@
+ 	cp[6] = ch;
+ 	do *cp++ = ch; while (*cp == ' ');
+ 
+-	printf(OPT_BATCH_MODE ? "%.*s" : ESC"[7m" "%.*s" ESC"[m", scr_width, line_buf);
++	printf(OPT_BATCH_MODE ? "%.*s" : ESC"[7m" "%.*s" ESC"[m" ESC"[K", scr_width, line_buf);
+ 	lines_rem--;
+ 
+ 	if (lines_rem > ntop - G_scroll_ofs)
+@@ -916,9 +921,11 @@
+ 		if (scr_width > (int)MIN_WIDTH) {
+ 			read_cmdline(&line_buf[8*6], scr_width - MIN_WIDTH, s->pid, s->comm);
+ 		}
+-		printf("\n""%.*s", scr_width, line_buf);
++		printf(OPT_BATCH_MODE ? "\n""%.*s" : "\n""%.*s" ESC"[K", scr_width, line_buf);
+ 		s++;
+ 	}
++	if (!OPT_BATCH_MODE)
++		fputs_stdout(ESC"[J");
+ 	bb_putchar(OPT_BATCH_MODE ? '\n' : '\r');
+ 	fflush_all();
+ #undef HDR_STR

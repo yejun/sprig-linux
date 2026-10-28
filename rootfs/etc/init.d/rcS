@@ -1,0 +1,55 @@
+#!/bin/sh
+# Startup: BusyBox applets as links (first boot), file systems, swap, network, SSH, with a line on the screen for
+# each step and how it went. (Shell built-ins where they will do: each program started costs the guest ~170 ms.)
+say() {   # say <what>: after a step, its result ($?) and what it was
+  if [ $? -eq 0 ]; then printf '[\033[1;32m  OK  \033[0m] %s\n' "$1"; else printf '[\033[1;31mFAILED\033[0m] %s\n' "$1"; fi
+}
+if [ ! -e /bin/ls ]; then
+  echo "First start: making links for BusyBox's programs..."
+  /bin/busybox --install -s
+  say "Installed BusyBox's programs"
+fi
+mount -t proc proc /proc && mount -t sysfs sys /sys
+say "Mounted /proc and /sys"
+mount -o remount,rw /
+say "Remounted the root file system read-write"
+mount -t tmpfs -o size=2m tmp /tmp
+say "Mounted /tmp (2 MB in memory)"
+mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
+say "Mounted /dev/pts"
+read -r host < /etc/hostname && hostname "$host"
+say "Set the host name: $host"
+if [ -f /swapfile ]; then
+  swapon /swapfile
+  say "Activated the swap file (/swapfile)"
+fi
+ifconfig lo 127.0.0.1 up
+say "Brought up the loopback interface"
+if ifconfig eth0 up 2>/dev/null; then   # (the address comes in the background: waiting for it took ~9 s)
+  udhcpc -b -q -t 3 -i eth0 -s /usr/share/udhcpc/default.script >/dev/null 2>&1 &
+  say "Started the DHCP client on eth0"
+fi
+# The mouse on the console (gpm): for nano, htop and copying text with the mouse
+if [ -x /usr/sbin/gpm ] && [ -e /dev/input/mice ]; then
+  gpm -m /dev/input/mice -t imps2
+  say "Started the console mouse (gpm)"
+fi
+# SSH (on the Tab5 PC: port 2222 of the Tab5): host key made at the first connection; logins once root has a password (passwd)
+if [ -x /usr/sbin/dropbear ]; then
+  dropbear -R
+  say "Started the SSH server"
+fi
+echo 4 > /proc/sys/kernel/printk   # from now on only warnings on the console (not over the prompt): dmesg has all
+# The graphics console's cursor stays on, not blinking: blinking runs kernel code 5 times a second, enough to push
+# programs being started out of the emulator's 3 MB of translated code (starting several programs in turn then took
+# 60% longer). echo 1 to have it blink.
+[ -w /sys/class/graphics/fbcon/cursor_blink ] && echo 0 > /sys/class/graphics/fbcon/cursor_blink
+read -r up _ < /proc/uptime
+read -r release < /proc/sys/kernel/osrelease
+echo
+echo "Welcome to Linux $release on $host (Linux started in ${up%.*} s)"
+echo
+free -k
+# Last: the whole screen scrolls from now on. While the boot logo is up, the console keeps its rows out of
+# scrolling (until a console switch), so text later written there would stay put. (Cursor saved and restored.)
+printf '\0337\033[r\0338'

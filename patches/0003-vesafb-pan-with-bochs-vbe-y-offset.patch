@@ -1,0 +1,70 @@
+vesafb: pan with the Bochs/QEMU VBE interface's Y offset register when there is no protected mode interface (as
+under a loader that sets the mode itself, without a VBE BIOS): video=vesafb:ypan then scrolls by panning, not by
+redrawing every character.
+
+--- a/drivers/video/fbdev/vesafb.c
++++ b/drivers/video/fbdev/vesafb.c
+@@ -65,11 +65,22 @@
+ static void  (*pmi_pal)  (void) __read_mostly;
+ static int   depth      __read_mostly;
+ static int   vga_compat __read_mostly;
++static int   bochs      __read_mostly;		/* Bochs/QEMU VBE interface: pan with its Y offset */
++
++#define VBE_DISPI_IOPORT_INDEX	0x1ce
++#define VBE_DISPI_IOPORT_DATA	0x1cf
++#define VBE_DISPI_INDEX_ID	0x0
++#define VBE_DISPI_INDEX_Y_OFFSET	0x9
+ /* --------------------------------------------------------------------- */
+ 
+ static int vesafb_pan_display(struct fb_var_screeninfo *var,
+                               struct fb_info *info)
+ {
++	if (bochs) {
++		outw(VBE_DISPI_INDEX_Y_OFFSET, VBE_DISPI_IOPORT_INDEX);
++		outw(var->yoffset, VBE_DISPI_IOPORT_DATA);
++		return 0;
++	}
+ #ifdef __i386__
+ 	int offset;
+ 
+@@ -345,10 +356,24 @@
+ 		       si->vesapm_seg, si->vesapm_off);
+ 	}
+ 
+-	if (si->vesapm_seg < 0xc000)
+-		ypan = pmi_setpal = 0; /* not available or some DOS TSR ... */
++	/*
++	 * Without the protected mode interface, a Bochs/QEMU VBE interface can
++	 * still pan: its Y offset register moves the display start.
++	 */
++	if (si->vesapm_seg < 0xc000 && ypan) {
++		outw(VBE_DISPI_INDEX_ID, VBE_DISPI_IOPORT_INDEX);
++		bochs = (inw(VBE_DISPI_IOPORT_DATA) & 0xfff0) == 0xb0c0;
++		if (bochs)
++			ypan = 1;
++	}
++
++	if (si->vesapm_seg < 0xc000) {
++		if (!bochs)
++			ypan = 0;
++		pmi_setpal = 0; /* not available or some DOS TSR ... */
++	}
+ 
+-	if (ypan || pmi_setpal) {
++	if ((ypan && !bochs) || pmi_setpal) {
+ 		unsigned long pmi_phys;
+ 		unsigned short *pmi_base;
+ 		pmi_phys  = ((unsigned long)si->vesapm_seg << 4) + si->vesapm_off;
+@@ -384,8 +409,10 @@
+ 	vesafb_defined.xres_virtual = vesafb_defined.xres;
+ 	vesafb_defined.yres_virtual = vesafb_fix.smem_len / vesafb_fix.line_length;
+ 	if (ypan && vesafb_defined.yres_virtual > vesafb_defined.yres) {
+-		dev_info(&dev->dev, "scrolling: %s using protected mode interface, yres_virtual=%d\n",
+-		       (ypan > 1) ? "ywrap" : "ypan",vesafb_defined.yres_virtual);
++		dev_info(&dev->dev, "scrolling: %s using %s, yres_virtual=%d\n",
++		       (ypan > 1) ? "ywrap" : "ypan",
++		       bochs ? "the Bochs VBE Y offset" : "protected mode interface",
++		       vesafb_defined.yres_virtual);
+ 	} else {
+ 		dev_info(&dev->dev, "scrolling: redraw\n");
+ 		vesafb_defined.yres_virtual = vesafb_defined.yres;
