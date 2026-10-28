@@ -34,11 +34,13 @@ if [ -x /usr/sbin/gpm ] && [ -e /dev/input/mice ]; then
   gpm -m /dev/input/mice -t imps2
   say "Started the console mouse (gpm)"
 fi
-# SSH (on the Tab5 PC: port 2222 of the Tab5): host key made at the first connection; logins once root has a password (passwd)
-if [ -x /usr/sbin/dropbear ]; then
-  dropbear -R
-  say "Started the SSH server"
-fi
+# Services turned on with "<name> enable": links in /etc/rc.d to their scripts in /etc/init.d (the SSH server: sshd,
+# off unless enabled)
+for s in /etc/rc.d/*; do
+  [ -x "$s" ] || continue
+  "$s" start >/dev/null
+  say "Started ${s##*/}"
+done
 echo 4 > /proc/sys/kernel/printk   # from now on only warnings on the console (not over the prompt): dmesg has all
 # The graphics console's cursor stays on, not blinking: blinking runs kernel code 5 times a second, enough to push
 # programs being started out of the emulator's 3 MB of translated code (starting several programs in turn then took

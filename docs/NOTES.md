@@ -32,6 +32,8 @@ instructions, memory, or both.
   and the kernel refuses a swap file with holes.
 - `rcS` uses shell built-ins where it can (starting a program costs the guest ~170 ms), doesn't wait for the DHCP
   address (9 s), prints a line per step, and sets the console to warnings only before the prompt.
+- Services are off unless turned on: `sshd enable` puts a link to `/etc/init.d/sshd` in `/etc/rc.d`, which `rcS`
+  starts at boot. The SSH server isn't needed by most sessions, and root has no password at first.
 - tcc links programs statically by default: a tcc linked to musl's shared library crashed on every compile, and a
   static tcc can't load it (so no `tcc -run` with shared libraries).
 

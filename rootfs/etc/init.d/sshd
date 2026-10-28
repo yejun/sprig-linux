@@ -1,0 +1,29 @@
+#!/bin/sh
+# The SSH server (dropbear): sshd start | stop | restart | status | enable | disable
+# Off by default. "enable" starts it at every boot (a link in /etc/rc.d, which rcS runs), "disable" no longer.
+# The host key is made at the first connection (-R). Root can log in once it has a password (passwd); on the Tab5 PC
+# the Tab5's port 2222 leads to the server: ssh -p 2222 root@<the Tab5's address>
+PID=/var/run/dropbear.pid
+running() { [ -f $PID ] && read -r pid < $PID && [ -d /proc/$pid ]; }
+case "$1" in
+  start)
+    if running; then echo "The SSH server is already running"; exit 0; fi
+    [ -x /usr/sbin/dropbear ] || { echo "dropbear is not installed" >&2; exit 1; }
+    mkdir -p /etc/dropbear
+    dropbear -R -P $PID || exit 1
+    echo "Started the SSH server"
+    read -r root 2>/dev/null < /etc/shadow || read -r root < /etc/passwd
+    case "$root" in root::*) echo "Root has no password: logins are refused until it has one (passwd)" ;; esac
+    ;;
+  stop)
+    if running; then kill "$pid" && rm -f $PID && echo "Stopped the SSH server"; else echo "The SSH server is not running"; fi
+    ;;
+  restart) "$0" stop; "$0" start ;;
+  status)
+    if running; then echo "The SSH server is running (process $pid)"; else echo "The SSH server is not running"; fi
+    if [ -e /etc/rc.d/sshd ]; then echo "It starts at boot"; else echo "It doesn't start at boot (sshd enable)"; fi
+    ;;
+  enable) mkdir -p /etc/rc.d && ln -sf ../init.d/sshd /etc/rc.d/sshd && echo "The SSH server starts at boot from now on" ;;
+  disable) rm -f /etc/rc.d/sshd && echo "The SSH server no longer starts at boot" ;;
+  *) echo "Usage: sshd start|stop|restart|status|enable|disable" >&2; exit 1 ;;
+esac

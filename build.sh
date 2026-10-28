@@ -75,6 +75,7 @@ rm -rf root && mkdir -p root/{bin,sbin,usr/bin,usr/sbin,usr/share/udhcpc,proc,sy
 cp -r "$HERE/rootfs/." root/
 [[ -d "$WORK/extras" ]] && cp -a "$WORK/extras/." root/   # from extras.sh, if run
 cp busybox-$BBVER/busybox root/bin/ && ln -s busybox root/bin/sh && ln -s ../bin/busybox root/sbin/init
+mkdir -p root/etc/rc.d && ln -s ../../etc/init.d/sshd root/usr/sbin/sshd   # (services: sshd start / enable)
 install -m 755 busybox-$BBVER/examples/udhcp/simple.script root/usr/share/udhcpc/default.script
 head -c 16M /dev/zero | tr '\0' '\125' > root/swapfile && chmod 600 root/swapfile && mkswap root/swapfile >/dev/null
 rm -f "$OUT/root.img"

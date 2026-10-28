@@ -38,8 +38,9 @@ Copy `bzImage`, `linuxstart.bin` and `root.img` to `/linux` on the card, and `ti
 `tiny386-linux-fb.ini`, with `bzImage-fb`) as `/tiny386.ini` (keep the DOS one to switch back). The first start
 makes BusyBox's links (a few minutes); after that Linux is at the prompt in about 30 s.
 
-`root` has no password. The SSH server lets root in once it has one (`passwd`), then from another computer
-`ssh -p 2222 root@<the Tab5's address>`.
+`root` has no password. The SSH server is off: `sshd start` starts it, `sshd enable` starts it at every boot
+(`sshd disable`, `sshd stop`, `sshd status`). It lets root in once root has a password (`passwd`); on the Tab5 PC
+from another computer: `ssh -p 2222 root@<the Tab5's address>`.
 
 ## Notes
 
