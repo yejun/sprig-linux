@@ -20,26 +20,34 @@ no longer supports the 486): `gen = 5` in tiny386's settings.
 
 ## Build
 
-On Linux (x86-64), with gcc (with `-m32`), make, flex, bison, bc, libelf, git, curl, [zig](https://ziglang.org)
-(BusyBox and the programs are built for i386 + musl with `zig cc`), fakeroot and e2fsprogs; for the programs also
-tic (ncurses), autoconf, automake, libtool and python3.
+On Linux (x86-64), with gcc (with `-m32`), make, flex, bison, bc, libelf, git, curl, fakeroot and e2fsprogs; for the
+programs also tic (ncurses), autoconf, automake, libtool and python3. BusyBox and the programs are built for i386 +
+musl with [zig](https://ziglang.org)'s `zig cc`; the scripts download it (a pinned version, like every source).
 
     ./extras.sh           # the programs beyond BusyBox -> work/extras (optional)
     ./build.sh            # kernel, loader, root file system (BusyBox, and the programs if built) -> out/
     FB=1 ./build.sh       # or: the same and the graphics console's kernel and settings
-    ./package.sh          # a release in release/ (after extras.sh and FB=1 build.sh), with the sources
 
-Downloads are kept in `work/dl` (and go into the release's sources archive, which builds again without a network).
 The results in `out/`: `bzImage`, `linuxstart.bin`, `root.img` (128 MB), `tiny386-linux.ini` (and with `FB=1`
 `bzImage-fb`, `tiny386-linux-fb.ini`).
+Downloads are kept in `work/dl`, each checked against its SHA-256. A patch that doesn't apply stops the build.
 
-GitHub builds it too (`.github/workflows/build.yml`): by hand from the Actions tab (the images as an artifact), or for
-a version tag (`git tag v0.1 && git push origin v0.1`): a draft release with the images, `SHA256SUMS` and the sources,
-to look over and publish.
+A release is built from a clean checkout with every source unpacked anew, and `package.sh` checks that the images are
+such a build of the current commit (`BUILDINFO` records what they were built from and with):
+
+    RELEASE=1 ./extras.sh && RELEASE=1 FB=1 ./build.sh && ./package.sh    # -> release/
+
+`release/` then holds the images (`root.img` gzipped), `BUILDINFO`, `THIRD_PARTY_NOTICES.md`, the licences, the
+sources archive (this repository and every upstream archive: it builds again without a network) and `SHA256SUMS`.
+
+GitHub builds releases too (`.github/workflows/build.yml`): by hand from the Actions tab (`release/` as an artifact
+for 3 days), or for a version tag (`git tag v0.1 && git push origin v0.1`): a draft release to look over and
+publish.
 
 ## Install on the Tab5 PC
 
-Copy `bzImage`, `linuxstart.bin` and `root.img` to `/linux` on the card, and `tiny386-linux.ini` (or
+Decompress the release's `root.img.gz` first (`gunzip root.img.gz`, or 7-Zip on Windows): the Tab5 PC needs
+`root.img` itself. Copy `bzImage`, `linuxstart.bin` and `root.img` to `/linux` on the card, and `tiny386-linux.ini` (or
 `tiny386-linux-fb.ini`, with `bzImage-fb`) as `/tiny386.ini` (keep the DOS one to switch back). The first start
 makes BusyBox's links (a few minutes); after that Linux is at the prompt in about 30 s.
 
@@ -54,6 +62,6 @@ How it is set up and why (kernel options, the console, memory, speed): [docs/NOT
 ## Licence
 
 The build scripts and configuration here are under the MIT licence (LICENSE). The kernel and the programs keep their
-own licences (Linux and BusyBox: GPL-2.0; the others as their sources say); `patches/` and `busybox-patches/` are
-changes to the kernel and BusyBox under their licences. Binary releases come with the exact sources they were built
-from.
+own licences: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (the texts are in the image's
+`/usr/share/licenses`). `patches/` and `busybox-patches/` are changes to the kernel and BusyBox under their licence
+(GPL-2.0). Binary releases come with the exact sources they were built from.

@@ -1,5 +1,5 @@
-# Builds Sprig Linux: by hand (Actions, "Run workflow": the images as an artifact for a few days), or for a version
-# tag (git tag v0.1 && git push origin v0.1: a draft release with the images and the sources, to look over and publish)
+# Builds Sprig Linux: by hand (Actions, "Run workflow": the release's files, sources included, as an artifact for a
+# few days), or for a version tag (git tag v0.1 && git push origin v0.1: a draft release to look over and publish)
 name: Build
 on:
   workflow_dispatch:
@@ -8,8 +8,7 @@ on:
 permissions:
   contents: write
 env:
-  ZIG: 0.17.0
-  ZIG_SHA256: 1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026
+  RELEASE: 1   # (every source unpacked anew; package.sh checks it)
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -23,15 +22,11 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q gcc-multilib flex bison bc libelf-dev fakeroot e2fsprogs autoconf automake \
             libtool ncurses-bin
-          curl -sSfL -o "$RUNNER_TEMP/zig.tar.xz" "https://ziglang.org/download/$ZIG/zig-x86_64-linux-$ZIG.tar.xz"
-          echo "$ZIG_SHA256  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
-          tar -xf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/zig-x86_64-linux-$ZIG" >> "$GITHUB_PATH"
       - name: Downloads (kept between runs)
         uses: actions/cache@v6
         with:
           path: work/dl
-          key: dl-${{ hashFiles('build.sh', 'extras.sh') }}
+          key: dl-${{ hashFiles('build.sh', 'extras.sh', 'tools/fetch.sh') }}
           restore-keys: dl-
       - name: Programs beyond BusyBox
         run: ./extras.sh
@@ -39,19 +34,17 @@ jobs:
         run: FB=1 ./build.sh
       - name: Package
         run: ./package.sh
-      - name: Images (by hand)
+      - name: Release's files (by hand; with the sources, so that shared images have them too)
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: sprig-linux-images
-          path: |
-            release/*
-            !release/*-sources.tar
-          retention-days: 5
+          name: sprig-linux-${{ github.sha }}
+          path: release/*
+          retention-days: 3
       - name: Draft release (tags)
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" release/* --draft --title "Sprig Linux $GITHUB_REF_NAME" \
-            --notes "Kernels (bzImage: text console, bzImage-fb: graphics console), loader, root file system (root.img.gz), settings, and the sources they were built from. See the README for installing."
+            --notes "Kernels (bzImage: text console, bzImage-fb: graphics console), loader, root file system (root.img.gz: decompress it before use), settings, what it was built from (BUILDINFO), third-party notices and licences, and the sources. See the README for installing."

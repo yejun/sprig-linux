@@ -3,7 +3,7 @@
 # into $WORK/extras, which build.sh copies into the root file system: dropbear (SSH server and client, scp), gpm (the
 # console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython.
 # Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm) and python3 on this computer.
-# Run before build.sh:  ./extras.sh
+# Run before build.sh:  ./extras.sh   (RELEASE=1 as for build.sh: a clean checkout, every source unpacked anew)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
@@ -15,18 +15,28 @@ Z=$HERE/tools/zcc
 EX=$WORK/extras    # what goes into the guest
 SYS=$WORK/sysroot  # what only the build needs (ncurses)
 HOST=(--host=i386-linux-musl --build=x86_64-linux-gnu)
-rm -rf "$EX" "$SYS" && mkdir -p "$EX" "$SYS"
+rm -rf "$EX" "$SYS" "$WORK/extras.info" && mkdir -p "$EX" "$SYS"
 
 cd pkgs
 . "$HERE/tools/fetch.sh"
-fetch https://matt.ucc.asn.au/dropbear/releases/dropbear-$DROPBEAR.tar.bz2 dropbear-$DROPBEAR
-fetch https://www.nico.schottelius.org/software/gpm/archives/gpm-$GPM.tar.bz2 gpm-$GPM
-fetch https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz ncurses-$NCURSES
-fetch https://ftp.gnu.org/gnu/nano/nano-$NANO.tar.xz nano-$NANO
-fetch https://github.com/htop-dev/htop/releases/download/$HTOP/htop-$HTOP.tar.xz htop-$HTOP
-fetch https://www.lua.org/ftp/lua-$LUA.tar.gz lua-$LUA
-fetch https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL
-fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY
+release_check
+use_zig
+fetch https://matt.ucc.asn.au/dropbear/releases/dropbear-$DROPBEAR.tar.bz2 dropbear-$DROPBEAR \
+  e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81
+fetch https://www.nico.schottelius.org/software/gpm/archives/gpm-$GPM.tar.bz2 gpm-$GPM \
+  f011b7dc7afb824e0a017b89b7300514e772853ece7fc4ee640310889411a48d
+fetch https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz ncurses-$NCURSES \
+  355b4cbbed880b0381a04c46617b7656e362585d52e9cf84a67e2009b749ff11
+fetch https://ftp.gnu.org/gnu/nano/nano-$NANO.tar.xz nano-$NANO \
+  a9affc52c9596ee0682bcdd4ceb3c0b235eb221d83d733dfd9b0dff45897cb0d
+fetch https://github.com/htop-dev/htop/releases/download/$HTOP/htop-$HTOP.tar.xz htop-$HTOP \
+  a8b164386494cb85bb255a415a3f5f80afe7a0c4491da5d113b3a0f951087e65
+fetch https://www.lua.org/ftp/lua-$LUA.tar.gz lua-$LUA \
+  1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce
+fetch https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL \
+  d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
+fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY \
+  d925a7c664e79a2bdf3dfcb285ba5e2237041cc35a0bd4ee573b6c5711efeca0
 rm -rf "tinycc-${TCC:?}"   # (unpacked anew: patched below)
 fetch_git https://github.com/TinyCC/tinycc.git $TCC tinycc
 
@@ -101,7 +111,23 @@ mkdir -p "$EX/usr/sbin" "$EX/etc/dropbear" && ln -sf ../bin/dropbearmulti "$EX/u
    LDFLAGS_EXTRA=-static LDFLAGS_ARCH=-Wl,--gc-sections >/dev/null 2>&1 &&
  install -D -m755 build-standard/micropython "$EX/usr/bin/micropython")
 
+# their licences (build.sh adds the kernel's, BusyBox's, the C library's and the loader's)
+L=$EX/usr/share/licenses
+install -D -m644 -t "$L/dropbear" dropbear-$DROPBEAR/LICENSE
+install -D -m644 -t "$L/gpm" gpm-$GPM/COPYING
+install -D -m644 -t "$L/ncurses" ncurses-$NCURSES/COPYING
+install -D -m644 -t "$L/nano" nano-$NANO/COPYING
+install -D -m644 -t "$L/htop" htop-$HTOP/COPYING
+mkdir -p "$L/lua" && sed -n '/^\* Copyright (C) 1994/,/^\*\*\*\*/p' lua-$LUA/src/lua.h | grep -v '^\*\*\*\*' |
+  sed 's/^\* \{0,1\}//' > "$L/lua/LICENSE"
+install -D -m644 -t "$L/musl" musl-$MUSL/COPYRIGHT   # (tcc's C library)
+install -D -m644 -t "$L/tcc" tinycc-$TCC/COPYING tinycc-$TCC/RELICENSING
+install -D -m644 -t "$L/micropython" micropython-$MPY/LICENSE
+
 find "$EX" -type f -perm -u+x -exec sh -c 'file "$1" | grep -q ELF && strip "$1"' _ {} \;
 # (debug data out of the libraries too: tcc's own are in .stab sections, with this computer's paths)
 find "$EX" -type f \( -name '*.a' -o -name '*.o' \) -exec strip --strip-debug -R .stab -R .stabstr {} \;
 du -sh "$EX"
+# how they were built (build.sh with RELEASE=1 takes only extras built with RELEASE=1 from its commit)
+if [[ "${RELEASE:-}" == 1 ]]; then echo "release $(git -C "$HERE" rev-parse HEAD)" > "$WORK/extras.info"
+else echo dev > "$WORK/extras.info"; fi
