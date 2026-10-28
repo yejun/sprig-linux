@@ -1,7 +1,7 @@
 # What build.sh and extras.sh share (sourced): downloads, patches, zig, release checks.
 #
 # fetch <url> <the directory it unpacks to> <sha256> [patches...]: the archive is kept in $WORK/dl and checked against
-# its SHA-256 (also when it is there already), and unpacked into the current directory. A tree is patched only right
+# its SHA-256 (a copy there already that doesn't match is downloaded again), and unpacked into the current directory. A tree is patched only right
 # after unpacking, with the whole series, every patch applying cleanly or the build stops; a stamp in it records the
 # series, and a tree whose series differs (or that has none: an interrupted run, an older build) is unpacked anew.
 # With RELEASE=1 every tree is unpacked anew. $WORK/dl is what package.sh puts in the release's sources; with the
@@ -12,6 +12,10 @@ fetch() {
   local url=$1 dir=$2 sum=$3 f=$WORK/dl/${1##*/} stamp=none p
   [[ $url == */archive/* ]] && f=$WORK/dl/$dir.tar.gz   # (GitHub's archive of a commit: <commit>.tar.gz)
   shift 3
+  if [[ -f $f ]] && ! echo "$sum  $f" | sha256sum -c --quiet - >/dev/null 2>&1; then
+    echo "$f isn't the archive expected (SHA-256): downloading it again" >&2   # (an old or damaged copy)
+    rm -f "$f"
+  fi
   [[ -f $f ]] || { curl -sSfL -o "$f.part" "$url" && mv "$f.part" "$f"; }
   echo "$sum  $f" | sha256sum -c --quiet - || { echo "$f is not the archive expected (SHA-256)" >&2; exit 1; }
   (($#)) && stamp=$(cat "$@" | sha256sum | cut -d' ' -f1)
