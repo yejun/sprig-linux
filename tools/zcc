@@ -1,0 +1,8 @@
+#!/bin/bash
+# The C compiler for the guest: zig cc for i386 Linux with musl, Pentium instructions. Leaves out the GNU ld options
+# zig's linker doesn't take.
+args=()
+for a in "$@"; do
+  case "$a" in -Wl,--warn-common|-Wl,-Map,*|-Wl,--sort-common|-Wl,--sort-section,alignment|-Wl,--verbose) ;; *) args+=("$a") ;; esac
+done
+exec zig cc -target x86-linux-musl -mcpu=pentium "${args[@]}"

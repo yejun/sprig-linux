@@ -3,7 +3,7 @@
 # into $WORK/extras, which build.sh copies into the root file system: dropbear (SSH server and client, scp), gpm (the
 # console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython.
 # Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm) and python3 on this computer.
-# Run after a first build.sh (it makes the compiler wrapper), then build.sh again:  ./extras.sh
+# Run before build.sh:  ./extras.sh
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
@@ -11,27 +11,24 @@ DROPBEAR=2026.94 GPM=1.20.7 NCURSES=6.6 NANO=9.3 HTOP=3.5.3 LUA=5.5.1 MUSL=1.2.6
 MPY=1.29.0
 mkdir -p "$WORK/pkgs"
 cd "$WORK"
-[[ -x zcc ]] || { echo "run ./build.sh first (it makes $WORK/zcc)" >&2; exit 1; }
-Z=$WORK/zcc
+Z=$HERE/tools/zcc
 EX=$WORK/extras    # what goes into the guest
 SYS=$WORK/sysroot  # what only the build needs (ncurses)
 HOST=(--host=i386-linux-musl --build=x86_64-linux-gnu)
 rm -rf "$EX" "$SYS" && mkdir -p "$EX" "$SYS"
 
 cd pkgs
-get() { [[ -d $2 ]] || curl -sSfL "$1" | tar -x${3}; }
-get https://matt.ucc.asn.au/dropbear/releases/dropbear-$DROPBEAR.tar.bz2 dropbear-$DROPBEAR j
-get https://www.nico.schottelius.org/software/gpm/archives/gpm-$GPM.tar.bz2 gpm-$GPM j
-get https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz ncurses-$NCURSES z
-get https://ftp.gnu.org/gnu/nano/nano-$NANO.tar.xz nano-$NANO J
-get https://github.com/htop-dev/htop/releases/download/$HTOP/htop-$HTOP.tar.xz htop-$HTOP J
-get https://www.lua.org/ftp/lua-$LUA.tar.gz lua-$LUA z
-get https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL z
-get https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY J
-if [[ ! -d tinycc ]]; then
-  git init -q tinycc && git -C tinycc fetch -q --depth 1 https://github.com/TinyCC/tinycc.git $TCC
-  git -C tinycc checkout -q FETCH_HEAD
-fi
+. "$HERE/tools/fetch.sh"
+fetch https://matt.ucc.asn.au/dropbear/releases/dropbear-$DROPBEAR.tar.bz2 dropbear-$DROPBEAR
+fetch https://www.nico.schottelius.org/software/gpm/archives/gpm-$GPM.tar.bz2 gpm-$GPM
+fetch https://ftp.gnu.org/gnu/ncurses/ncurses-$NCURSES.tar.gz ncurses-$NCURSES
+fetch https://ftp.gnu.org/gnu/nano/nano-$NANO.tar.xz nano-$NANO
+fetch https://github.com/htop-dev/htop/releases/download/$HTOP/htop-$HTOP.tar.xz htop-$HTOP
+fetch https://www.lua.org/ftp/lua-$LUA.tar.gz lua-$LUA
+fetch https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL
+fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY
+rm -rf "tinycc-${TCC:?}"   # (unpacked anew: patched below)
+fetch_git https://github.com/TinyCC/tinycc.git $TCC tinycc
 
 # musl, for tcc: headers, static libraries and start files (no shared library: tcc links statically, below)
 (cd musl-$MUSL && ./configure --target=i386-linux-musl --prefix=/usr --syslibdir=/lib CC="$Z" AR="zig ar" \
@@ -40,7 +37,7 @@ rm -rf "$EX/lib" "$EX/usr/lib/libc.so"
 
 # tcc, static, and making static programs by default (a tcc linked to musl's shared library crashed, and a static
 # one can't load it for tcc -run); its runtime library is compiled by itself, with musl's headers
-(cd tinycc && git checkout -q libtcc.c &&
+(cd tinycc-$TCC &&
  sed -i 's|^    s->nocommon = 1;$|&\n    s->static_link = 1; /* tiny386 guest: no shared C library */|' libtcc.c &&
  ./configure --prefix=/usr --cc="$Z" --ar="zig ar" --cpu=i386 --targetos=Linux --config-musl --enable-static \
    --extra-ldflags=-static --crtprefix=/usr/lib >/dev/null && make -s clean >/dev/null &&
@@ -97,26 +94,9 @@ for p in dbclient dropbearkey scp; do ln -sf dropbearmulti "$EX/usr/bin/$p"; don
 ln -sf dbclient "$EX/usr/bin/ssh"
 mkdir -p "$EX/usr/sbin" "$EX/etc/dropbear" && ln -sf ../bin/dropbearmulti "$EX/usr/sbin/dropbear"
 
-# MicroPython (the Unix port, without ffi, btree and ssl); zig cc -E takes one source file at a time (zcpp)
-cat > "$WORK/zcpp" <<'ZCPP'
-#!/bin/bash
-# zig cc -E takes one source file at a time, and not standard input: each in turn, standard input through a file
-opts=() files=() tmp=
-for a in "$@"; do
-  case "$a" in
-    -) tmp=$(mktemp --suffix=.c); cat > "$tmp"; files+=("$tmp") ;;
-    *.c|*.cpp) files+=("$a") ;;
-    *) opts+=("$a") ;;
-  esac
-done
-rc=0
-for f in "${files[@]}"; do "$(dirname "$0")/zcc" -E "${opts[@]}" "$f" || { rc=1; break; }; done
-[[ -n $tmp ]] && rm -f "$tmp"
-exit $rc
-ZCPP
-chmod +x "$WORK/zcpp"
+# MicroPython (the Unix port, without ffi, btree and ssl); its preprocessor tools/zcpp
 (cd micropython-$MPY && make -s -C mpy-cross >/dev/null 2>&1 && cd ports/unix && make -s clean >/dev/null 2>&1 &&
- make -s -j"$(nproc)" VARIANT=standard CC="$Z" CPP="$WORK/zcpp" STRIP=strip SIZE=size MICROPY_PY_FFI=0 \
+ make -s -j"$(nproc)" VARIANT=standard CC="$Z" CPP="$HERE/tools/zcpp" STRIP=strip SIZE=size MICROPY_PY_FFI=0 \
    MICROPY_PY_BTREE=0 MICROPY_PY_SSL=0 MICROPY_SSL_MBEDTLS=0 CFLAGS_EXTRA=-DMICROPY_GCREGS_SETJMP=1 \
    LDFLAGS_EXTRA=-static LDFLAGS_ARCH=-Wl,--gc-sections >/dev/null 2>&1 &&
  install -D -m755 build-standard/micropython "$EX/usr/bin/micropython")

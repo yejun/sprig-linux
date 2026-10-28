@@ -24,13 +24,18 @@ On Linux (x86-64), with gcc (with `-m32`), make, flex, bison, bc, libelf, git, c
 (BusyBox and the programs are built for i386 + musl with `zig cc`), fakeroot and e2fsprogs; for the programs also
 tic (ncurses), autoconf, automake, libtool and python3.
 
-    ./build.sh            # kernel, loader, root file system (BusyBox) -> out/
-    ./extras.sh           # the programs beyond BusyBox -> work/extras
-    ./build.sh            # again: now with them
-    FB=1 ./build.sh       # also the graphics console's kernel and settings
+    ./extras.sh           # the programs beyond BusyBox -> work/extras (optional)
+    ./build.sh            # kernel, loader, root file system (BusyBox, and the programs if built) -> out/
+    FB=1 ./build.sh       # or: the same and the graphics console's kernel and settings
+    ./package.sh          # a release in release/ (after extras.sh and FB=1 build.sh), with the sources
 
-Sources are downloaded into `work/`. The results in `out/`: `bzImage`, `linuxstart.bin`, `root.img` (128 MB),
-`tiny386-linux.ini` (and with `FB=1` `bzImage-fb`, `tiny386-linux-fb.ini`).
+Downloads are kept in `work/dl` (and go into the release's sources archive, which builds again without a network).
+The results in `out/`: `bzImage`, `linuxstart.bin`, `root.img` (128 MB), `tiny386-linux.ini` (and with `FB=1`
+`bzImage-fb`, `tiny386-linux-fb.ini`).
+
+GitHub builds it too (`.github/workflows/build.yml`): by hand from the Actions tab (the images as an artifact), or for
+a version tag (`git tag v0.1 && git push origin v0.1`): a draft release with the images, `SHA256SUMS` and the sources,
+to look over and publish.
 
 ## Install on the Tab5 PC
 

@@ -1,0 +1,15 @@
+#!/bin/bash
+# zcc's preprocessor (zig cc -E), which takes one source file at a time, and not standard input: each in turn,
+# standard input through a file
+opts=() files=() tmp=
+for a in "$@"; do
+  case "$a" in
+    -) tmp=$(mktemp --suffix=.c); cat > "$tmp"; files+=("$tmp") ;;
+    *.c|*.cpp) files+=("$a") ;;
+    *) opts+=("$a") ;;
+  esac
+done
+rc=0
+for f in "${files[@]}"; do "$(dirname "$0")/zcc" -E "${opts[@]}" "$f" || { rc=1; break; }; done
+[[ -n $tmp ]] && rm -f "$tmp"
+exit $rc
