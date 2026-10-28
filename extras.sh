@@ -37,8 +37,9 @@ fetch https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL \
   d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
 fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY \
   d925a7c664e79a2bdf3dfcb285ba5e2237041cc35a0bd4ee573b6c5711efeca0
-rm -rf "tinycc-${TCC:?}"   # (unpacked anew: patched below)
-fetch_git https://github.com/TinyCC/tinycc.git $TCC tinycc
+rm -rf "tinycc-${TCC:?}"   # (unpacked anew: changed below)
+fetch https://github.com/TinyCC/tinycc/archive/$TCC.tar.gz tinycc-$TCC \
+  d2470fdeed862ddb18f4ec4e6a405fa984580c3d85c38492516749c61931c30e
 
 # musl, for tcc: headers, static libraries and start files (no shared library: tcc links statically, below)
 (cd musl-$MUSL && ./configure --target=i386-linux-musl --prefix=/usr --syslibdir=/lib CC="$Z" AR="zig ar" \

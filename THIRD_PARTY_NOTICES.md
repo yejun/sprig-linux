@@ -14,7 +14,7 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | compiler-rt, as bundled with zig | zig 0.17.0 | MIT | linked into every program in the image |
 | [musl](https://musl.libc.org) | 1.2.6 | MIT | the image: tcc's C library (`/usr/include`, `/usr/lib`) |
 | [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html) | 2026.94 | MIT, with parts under other permissive licences (see its LICENSE) | the image: SSH server and client |
-| [gpm](https://www.nico.schottelius.org/software/gpm/) | 1.20.7 | GPL-2.0 | the image: the console mouse |
+| [gpm](https://www.nico.schottelius.org/software/gpm/) | 1.20.7 | GPL-2.0-or-later | the image: the console mouse |
 | [ncurses](https://invisible-island.net/ncurses/) | 6.6 | MIT-style (X11) | the image: in nano and htop, terminal descriptions |
 | [GNU nano](https://www.nano-editor.org) | 9.3 | GPL-3.0-or-later | the image |
 | [htop](https://htop.dev) | 3.5.3 | GPL-2.0-or-later | the image |

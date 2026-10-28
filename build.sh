@@ -25,12 +25,11 @@ fi
 mkdir -p "$OUT"
 use_zig
 fetch "https://cdn.kernel.org/pub/linux/kernel/v${KVER%%.*}.x/linux-$KVER.tar.xz" linux-$KVER \
-  87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953
+  87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953 "$HERE"/patches/*.patch
 fetch "https://busybox.net/downloads/busybox-$BBVER.tar.bz2" busybox-$BBVER \
-  3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4
-fetch_git https://github.com/hchunhui/tiny386.git "$TINY386" tiny386
-apply_patches linux-$KVER "$HERE"/patches/*.patch
-apply_patches busybox-$BBVER "$HERE"/busybox-patches/*.patch
+  3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4 "$HERE"/busybox-patches/*.patch
+fetch https://github.com/hchunhui/tiny386/archive/$TINY386.tar.gz tiny386-$TINY386 \
+  43c890663beffb39de2d6ee3950e03e9ce92c5f74ae503f17656728532236532
 
 # kernel: tinyconfig + what tiny386 has (tiny386.config); with FB=1 also a variant with a graphics console and the boot
 # logo (fb.config: bzImage-fb + tiny386-linux-fb.ini), built first in the same tree
