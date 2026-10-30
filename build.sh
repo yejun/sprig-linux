@@ -59,10 +59,17 @@ if [[ "${FB:-}" == 1 ]]; then
     printf '\n[display]\nwidth = 800\nheight = 600\n'; } > "$OUT/tiny386-linux-fb.ini"
 fi
 
-# BusyBox, static, i386 + musl (tools/zcc: zig cc), Pentium instructions; tc doesn't build with current kernel headers
+# BusyBox, static, i386 + musl (tools/zcc: zig cc), Pentium instructions; tc doesn't build with current kernel headers.
+# Zig's libc, built for size with a program built for size (as BusyBox is), copies, fills and measures strings a byte
+# at a time: the link at -O2 instead (ZCC_LINK_O2: tools/zcc; BusyBox's own code stays -Os), and memcpy, memmove,
+# memset and strlen from tools/string-i386.S (REP MOVSD and STOSD, which the Tab5's emulator does in bulk). Its
+# object goes into the final link alone (CONFIG_EXTRA_LDLIBS; an archive would not be searched: zig's compiler-rt
+# defines them already, weak). The Sprig workload on the Tab5 (3x ls -lR /, nano, htop, tcc): 81.7 -> 77.8 s.
+"$HERE/tools/zcc" -c -o string-i386.o "$HERE/tools/string-i386.S"
 (cd busybox-$BBVER && make -s defconfig >/dev/null &&
- sed -i -e 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' -e 's/^CONFIG_TC=y/# CONFIG_TC is not set/' .config &&
- make -s -j"$(nproc)" CC="$HERE/tools/zcc" HOSTCC=gcc AR="zig ar" STRIP=strip >/dev/null)
+ sed -i -e 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' -e 's/^CONFIG_TC=y/# CONFIG_TC is not set/' \
+        -e "s|^CONFIG_EXTRA_LDLIBS=.*|CONFIG_EXTRA_LDLIBS=\"-Wl,$WORK/string-i386.o\"|" .config &&
+ ZCC_LINK_O2=1 make -s -j"$(nproc)" CC="$HERE/tools/zcc" HOSTCC=gcc AR="zig ar" STRIP=strip >/dev/null)
 
 # root file system, ext4 with a journal (the emulated PC is often reset or switched off while running): BusyBox (its
 # applets linked at first boot), rootfs/ from here, a 16 MB swap file (filled, not zeros: the kernel refuses a swap
