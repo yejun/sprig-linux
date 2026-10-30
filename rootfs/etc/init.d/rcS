@@ -11,7 +11,8 @@ if [ ! -e /bin/ls ]; then
 fi
 mount -t proc proc /proc && mount -t sysfs sys /sys
 say "Mounted /proc and /sys"
-mount -o remount,rw /
+# noatime: reading a file doesn't write its access time (less work per read, and fewer writes to the card)
+mount -o remount,rw,noatime /
 say "Remounted the root file system read-write"
 mount -t tmpfs -o size=2m tmp /tmp
 say "Mounted /tmp (2 MB in memory)"
