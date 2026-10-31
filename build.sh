@@ -8,7 +8,7 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
 OUT=${OUT:-$HERE/out}
-KVER=7.3
+KVER=7.3.1
 BBVER=1.37.0
 TINY386=003c2666dfe665e1068917af69a99afed1f0f70f   # tiny386 (github.com/hchunhui/tiny386): its loader
 export KBUILD_BUILD_USER=sprig KBUILD_BUILD_HOST=sprig-linux   # (in the kernel's version string, not this computer's)
@@ -25,7 +25,7 @@ fi
 mkdir -p "$OUT"
 use_zig
 fetch "https://cdn.kernel.org/pub/linux/kernel/v${KVER%%.*}.x/linux-$KVER.tar.xz" linux-$KVER \
-  87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953 "$HERE"/patches/*.patch
+  fa595aad93734f829c963c2a90ef7c3673224fd7fdae7b49406e397cde2de231 "$HERE"/patches/*.patch
 fetch "https://busybox.net/downloads/busybox-$BBVER.tar.bz2" busybox-$BBVER \
   3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4 "$HERE"/busybox-patches/*.patch
 fetch https://github.com/hchunhui/tiny386/archive/$TINY386.tar.gz tiny386-$TINY386 \

@@ -11,7 +11,7 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 
 | Software | Version | Licence | Where |
 |---|---|---|---|
-| [Linux](https://kernel.org) | 7.3, with patches/ | GPL-2.0 (with the syscall note) | `bzImage`, `bzImage-fb` |
+| [Linux](https://kernel.org) | 7.3.1, with patches/ | GPL-2.0 (with the syscall note) | `bzImage`, `bzImage-fb` |
 | [BusyBox](https://busybox.net) | 1.37.0, with busybox-patches/ | GPL-2.0 | the image: `/bin/busybox` |
 | linuxstart, from [tiny386](https://github.com/hchunhui/tiny386) | tiny386 003c266 | MIT (linuxstart: Fabrice Bellard); tiny386's build files BSD-3-Clause | `linuxstart.bin` |
 | musl, as bundled with [zig](https://ziglang.org) | zig 0.17.0 | MIT | linked into every program in the image |
