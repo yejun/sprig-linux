@@ -1,0 +1,50 @@
+fbcon: the cursor drawn once the output has paused for 50 ms (by the cursor work), not after every write, and one not
+drawn isn't erased: while text streams in, the cursor isn't drawn and erased for each write. Without blinking (Sprig's
+rcS turns it off) the work draws it once instead of toggling it. Under the tiny386 emulator drawing and erasing the
+cursor for every write was ~20% of the console's time (seq 2000 with the cursor hidden: 11.5 -> 9.2 s).
+
+--- a/drivers/video/fbdev/core/fbcon.c
++++ b/drivers/video/fbdev/core/fbcon.c
+@@ -419,14 +419,16 @@
+ 	}
+ 
+ 	c = scr_readw((u16 *) vc->vc_pos);
+-	enable = par->cursor_flash && !par->cursor_state.enable;
++	/* (Sprig: without blinking, run once by fbcon_cursor: drawn, not toggled) */
++	enable = par->cursor_flash && (!fbcon_cursor_blink || !par->cursor_state.enable);
+ 	par->bitops->cursor(vc, info, enable,
+ 			    get_fg_color(vc, info, c),
+ 			    get_bg_color(vc, info, c));
+ 	console_unlock();
+ 
+-	queue_delayed_work(system_power_efficient_wq, &par->cursor_work,
+-			   par->cur_blink_jiffies);
++	if (fbcon_cursor_blink)
++		queue_delayed_work(system_power_efficient_wq, &par->cursor_work,
++				   par->cur_blink_jiffies);
+ }
+ 
+ static void fbcon_add_cursor_work(struct fb_info *info)
+@@ -1431,6 +1433,22 @@
+ 	if (!par->bitops->cursor)
+ 		return;
+ 
++	/*
++	 * Sprig: the cursor drawn by the cursor work once the output has paused
++	 * for 50 ms, not after every write (and one not drawn isn't erased):
++	 * while text streams in, it isn't drawn and erased for each write.
++	 * Under the tiny386 emulator that was ~20% of the console's time.
++	 */
++	if (!(vc->vc_cursor_type & CUR_SW)) {
++		if (enable) {
++			mod_delayed_work(system_power_efficient_wq, &par->cursor_work,
++					 msecs_to_jiffies(50));
++			return;
++		}
++		if (!par->cursor_state.enable)
++			return;
++	}
++
+ 	par->bitops->cursor(vc, info, enable,
+ 			    get_fg_color(vc, info, c),
+ 			    get_bg_color(vc, info, c));
