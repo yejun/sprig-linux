@@ -1,0 +1,65 @@
+read (the shell builtin): from a regular file, without -n or -t, read 256 bytes at a time and give back what follows
+the line with lseek (as bash does), instead of a poll and a read for every byte. A file read line by line in a
+shell loop: ~10x faster on a PC; on the Tab5's emulated PC each system call costs ~0.4 ms.
+
+--- a/shell/shell_common.c
++++ b/shell/shell_common.c
+@@ -70,6 +70,11 @@
+ 	char **argv;
+ 	const char *ifs;
+ 	int read_flags;
++	/* A regular file, without -n or -t: read in chunks, and give back what wasn't used (as bash does), instead of
++	 * a poll and a read for every byte (it never blocks: nothing to interrupt) */
++	struct stat st;
++	char chunk[256];
++	int chunked, clen = 0, cpos = 0;
+ 
+ 	errno = err = 0;
+ 
+@@ -189,6 +194,7 @@
+ 	buffer = NULL;
+ 	bufpos = 0;
+ 	delim = params->opt_d ? params->opt_d[0] : '\n';
++	chunked = !nchars && !params->opt_t && fstat(fd, &st) == 0 && S_ISREG(st.st_mode);
+ 	do {
+ 		char c;
+ 		int timeout;
+@@ -209,6 +215,20 @@
+ 			}
+ 		}
+ 
++		if (chunked) {
++			if (cpos == clen) {
++				clen = read(fd, chunk, sizeof(chunk));
++				cpos = 0;
++				if (clen <= 0) {
++					err = errno;
++					clen = 0;
++					retval = (const char *)(uintptr_t)1;
++					break;
++				}
++			}
++			buffer[bufpos] = chunk[cpos++];
++			goto got;
++		}
+ 		/* We must poll even if timeout is -1:
+ 		 * we want to be interrupted if signal arrives,
+ 		 * regardless of SA_RESTART-ness of that signal!
+@@ -227,7 +247,7 @@
+ 			retval = (const char *)(uintptr_t)1;
+ 			break;
+ 		}
+-
++ got:
+ 		c = buffer[bufpos];
+ 		if (!(read_flags & BUILTIN_READ_RAW)) {
+ 			if (backslash) {
+@@ -275,6 +295,8 @@
+  put:
+ 		bufpos++;
+ 	} while (--nchars);
++	if (cpos < clen) /* (chunked) the bytes after the line: back to the file */
++		lseek(fd, cpos - clen, SEEK_CUR);
+ 
+ 	if (argv[0]) {
+ 		/* Remove trailing space $IFS chars */
