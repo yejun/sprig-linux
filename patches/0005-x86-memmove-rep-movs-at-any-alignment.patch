@@ -1,0 +1,43 @@
+x86/memmove_32: REP MOVSD from 64 bytes, at any alignment. Under the tiny386 emulator REP MOVSD is done in bulk, and
+the 16-byte loop is emulated a load or store at a time; the alignment test (source and destination alike in their
+low 8 bits) is a tuning for real CPUs, not needed for correctness (the movs paths save the last dword first). The
+console's scrolling moved its screen buffer a row of 200 bytes on through the loop: ~10% of the time while printing.
+
+--- a/arch/x86/lib/memmove_32.S
++++ b/arch/x86/lib/memmove_32.S
+@@ -53,14 +53,14 @@
+ 	/*
+ 	 * movs instruction have many startup latency
+ 	 * so we handle small size by general register.
++	 * (Sprig: under the tiny386 emulator REP MOVSD is done in bulk, whatever
++	 * the alignment, and the loop below an emulated load or store at a
++	 * time: movs from 64 bytes, at any alignment. The console's scrolling
++	 * moved its text a row of 200 bytes on, a loop of 16 bytes at a time.)
+ 	 */
+-	cmpl	$680, n
++	cmpl	$64, n
+ 	jb	.Ltoo_small_forwards
+-	/* movs instruction is only good for aligned case. */
+-	movl	src, tmp0
+-	xorl	dest, tmp0
+-	andl	$0xff, tmp0
+-	jz	.Lforward_movs
++	jmp	.Lforward_movs
+ .Ltoo_small_forwards:
+ 	subl	$0x10, n
+ 
+@@ -108,12 +108,9 @@
+ 	/* Start to prepare for backward copy. */
+ .p2align 4
+ .Lbackwards_header:
+-	cmpl	$680, n
++	cmpl	$64, n
+ 	jb	.Ltoo_small_backwards
+-	movl	src, tmp0
+-	xorl	dest, tmp0
+-	andl	$0xff, tmp0
+-	jz	.Lbackwards_movs
++	jmp	.Lbackwards_movs
+ 
+ 	/* Calculate copy position to tail. */
+ .Ltoo_small_backwards:
