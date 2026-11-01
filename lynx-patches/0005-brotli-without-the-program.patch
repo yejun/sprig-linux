@@ -1,0 +1,19 @@
+Brotli read with the library (USE_BROTLI) also where there is no brotli program: lynx turned a brotli reply into
+www/compressed only if it found the program, though it never runs it with the library, and else showed the
+compressed bytes. Some servers send brotli even when asked for gzip alone (lynx's own home page).
+
+--- a/src/HTFWriter.c
++++ b/src/HTFWriter.c
+@@ -1458,6 +1458,12 @@
+ 		    StrAllocCat(uncompress_mask, " -j -d %s");
+ 		    compress_suffix = "br";
+ 		}
++#ifdef USE_BROTLI
++		else {		/* read with the library: no program needed */
++		    StrAllocCopy(uncompress_mask, "brotli -j -d %s");
++		    compress_suffix = "br";
++		}
++#endif
+ 		break;
+ 	    case cftZstd:
+ 		if ((program = HTGetProgramPath(ppZSTD)) != NULL) {

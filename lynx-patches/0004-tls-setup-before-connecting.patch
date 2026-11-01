@@ -1,0 +1,26 @@
+The TLS library set up before connecting (lynx-patches/0001's HTSSLFree): lynx made the TCP connection first and
+set up OpenSSL (the first time: its configuration, providers and ciphers, the kept sessions) only then, inside
+HTSSLConnect. On the Tab5's emulated Pentium that takes ~1.5 s, and some servers close a connection whose request
+hasn't come in 5 s (lynx.invisible-island.net, lynx's own start page, never opened there).
+
+--- a/WWW/Library/Implementation/HTTP.c
++++ b/WWW/Library/Implementation/HTTP.c
+@@ -557,9 +557,16 @@
+     line_kept_clean = NULL;
+ 
+ #ifdef USE_SSL
+-    if (!StrNCmp(url, "https", 5))
++    if (!StrNCmp(url, "https", 5)) {
++	/*
++	 * The TLS library's setup (the first time: its configuration, the
++	 * ciphers, the kept sessions) before connecting, not between the
++	 * connection and the request: on a slow CPU it takes seconds, and some
++	 * servers close a connection whose request hasn't come in 5.
++	 */
++	HTSSLFree(HTGetSSLHandle());
+ 	status = HTDoConnect(url, "HTTPS", HTTPS_PORT, &s);
+-    else
++    } else
+ 	status = HTDoConnect(url, "HTTP", HTTP_PORT, &s);
+ #else
+     if (!StrNCmp(url, "https", 5)) {

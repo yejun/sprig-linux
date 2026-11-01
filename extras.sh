@@ -2,7 +2,8 @@
 # Programs beyond BusyBox, built static for i386 + musl like BusyBox (zig cc, Pentium instructions) and installed
 # into $WORK/extras, which build.sh copies into the root file system: dropbear (SSH server and client, scp), gpm (the
 # console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython, lynx (a web
-# browser, with OpenSSL for HTTPS and Mozilla's CA certificates as curl publishes them, zlib for compressed pages).
+# browser, with OpenSSL for HTTPS and Mozilla's CA certificates as curl publishes them, zlib and brotli's decoder for
+# compressed pages).
 # Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm), python3, perl (OpenSSL) and openssl
 # (the certificates' hashes) on this computer.
 # Run before build.sh:  ./extras.sh   (RELEASE=1 as for build.sh: a clean checkout, every source unpacked anew)
@@ -10,7 +11,7 @@ set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
 DROPBEAR=2026.94 GPM=1.20.7 NCURSES=6.6 NANO=9.3 HTOP=3.5.3 LUA=5.5.1 MUSL=1.2.6 TCC=e23dabed154a8495f3ac1ff3cc9d04fa1c207893
-MPY=1.29.0 OPENSSL=3.6.5 LYNX=2.9.3 CACERT=2026-10-20 ZLIB=1.3.2
+MPY=1.29.0 OPENSSL=3.6.5 LYNX=2.9.3 CACERT=2026-10-20 ZLIB=1.3.2 BROTLI=1.2.1
 mkdir -p "$WORK/pkgs"
 cd "$WORK"
 Z=$HERE/tools/zcc
@@ -42,6 +43,8 @@ fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropyth
 fetch https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL/openssl-$OPENSSL.tar.gz openssl-$OPENSSL \
   a2157c2830efdec3788939b00c9b0638306d3f0bbb76dc4832ee503bb397df98
 fetch https://zlib.net/zlib-$ZLIB.tar.gz zlib-$ZLIB bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+fetch https://github.com/google/brotli/archive/refs/tags/v$BROTLI.tar.gz brotli-$BROTLI \
+  98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f
 fetch https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2 lynx$LYNX \
   174b7f2866a60f3247ba75f5c7dbb10b124aede4a1359312de15f3bfebd2050f "$HERE"/lynx-patches/*.patch
 fetch_file https://curl.se/ca/cacert-$CACERT.pem 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
@@ -175,18 +178,31 @@ CNF
  make -s -j"$(nproc)" libz.a >/dev/null 2>&1 && install -D -m644 -t "$SYS/usr/lib" libz.a &&
  install -D -m644 -t "$SYS/usr/include" zlib.h zconf.h)
 
+# brotli's decoder (static, its common part in the same archive) for lynx: some servers send brotli even when asked
+# for gzip alone (lynx's own home page); lynx doesn't ask for it (no brotli program), but can read it now
+(cd brotli-$BROTLI && rm -rf o && mkdir o &&
+ for f in c/common/*.c c/dec/*.c; do
+   d=${f%/*}; "$Z" -O2 -Ic/include -c "$f" -o "o/${d##*/}-$(basename "${f%.c}").o" || exit 1
+ done && zig ar rcs libbrotlidec.a o/*.o && install -D -m644 -t "$SYS/usr/lib" libbrotlidec.a &&
+ install -D -m644 -t "$SYS/usr/include/brotli" c/include/brotli/*.h)
+
 # lynx, with HTTPS, compressed pages and the mouse; it resumes TLS sessions (lynx-patches/0001), also those of an
-# earlier lynx (0003: ~/.lynx_tls_sessions), and asks for compressed pages with -dump too (0002). Its lynx.cfg without
-# the comments (3,900 lines: reading them took ~0.5 s at every start on the Tab5); the commented one in
-# /usr/share/doc/lynx
+# earlier lynx (0003: ~/.lynx_tls_sessions), asks for compressed pages with -dump too (0002), and sets TLS up before it
+# connects (0004). NCURSES_CONFIG=none: not this computer's ncursesw6-config (Ubuntu's adds -ltinfo, which the
+# guest's ncurses doesn't have). Its lynx.cfg without the comments (3,900 lines: reading them took ~0.5 s at every
+# start on the Tab5; the commented one in /usr/share/doc/lynx), and Sprig's start page (rootfs/usr/share/sprig) in
+# place of lynx's home page, which takes ~8 s to open on the Tab5 and a network
 (cd lynx$LYNX && ./configure -q "${HOST[@]}" CC="$Z" BUILD_CC=cc --prefix=/usr --sysconfdir=/etc --disable-nls \
-   --with-screen=ncursesw --with-curses-dir="$SYS/usr" --with-ssl="$SYS/usr" --with-zlib --enable-default-colors \
+   --with-screen=ncursesw --with-curses-dir="$SYS/usr" --with-ssl="$SYS/usr" --with-zlib --with-brotli \
+   --enable-default-colors \
    --enable-color-style --enable-ipv6 --disable-full-paths --disable-config-info "${NC[@]}" LIBS=-lgpm \
-   CFLAGS="-O2 -DNO_BUILDSTAMP" cf_cv_getaddrinfo=yes >/dev/null &&
+   NCURSES_CONFIG=none CFLAGS="-O2 -DNO_BUILDSTAMP" cf_cv_getaddrinfo=yes >/dev/null &&
  make -s clean >/dev/null 2>&1 && make -s -j"$(nproc)" >/dev/null 2>&1 && install -D -m755 -t "$EX/usr/bin" lynx &&
  install -D -m644 -t "$EX/usr/share/doc/lynx" lynx.cfg && install -D -m644 samples/lynx.lss "$EX/etc/lynx.lss" &&
  { echo "# lynx's settings: the commented original, with every setting described, is /usr/share/doc/lynx/lynx.cfg"
-   grep -v -E '^(#|\.|[[:space:]]*$)' lynx.cfg; } > "$EX/etc/lynx.cfg" && chmod 644 "$EX/etc/lynx.cfg")
+   grep -v -E '^(#|\.|[[:space:]]*$)' lynx.cfg |
+     sed 's|^STARTFILE:.*|STARTFILE:file://localhost/usr/share/sprig/start.html|'; } > "$EX/etc/lynx.cfg" &&
+ chmod 644 "$EX/etc/lynx.cfg")
 
 # their licences (build.sh adds the kernel's, BusyBox's, the C library's and the loader's)
 L=$EX/usr/share/licenses
@@ -203,6 +219,7 @@ install -D -m644 -t "$L/micropython" micropython-$MPY/LICENSE
 install -D -m644 -t "$L/openssl" openssl-$OPENSSL/LICENSE.txt
 install -D -m644 -t "$L/lynx" lynx$LYNX/COPYING lynx$LYNX/COPYHEADER
 install -D -m644 -t "$L/zlib" zlib-$ZLIB/LICENSE
+install -D -m644 -t "$L/brotli" brotli-$BROTLI/LICENSE
 install -D -m644 "$MPL" "$L/ca-certificates/MPL-2.0.txt"
 printf '%s\n' "/etc/ssl/certs: Mozilla's CA certificates (certdata.txt, MPL-2.0), as curl publishes them:" \
   "https://curl.se/ca/cacert-$CACERT.pem" > "$L/ca-certificates/README"
