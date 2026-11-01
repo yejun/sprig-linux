@@ -29,6 +29,15 @@ fetch() {
   fi
 }
 
+# fetch_file <url> <sha256> [<name>]: a file that isn't an archive (kept in $WORK/dl, as <name> if given, and checked
+# the same way); its path in $F
+fetch_file() {
+  F=$WORK/dl/${3:-${1##*/}}
+  if [[ -f $F ]] && ! echo "$2  $F" | sha256sum -c --quiet - >/dev/null 2>&1; then rm -f "$F"; fi
+  [[ -f $F ]] || { curl -sSfL -o "$F.part" "$1" && mv "$F.part" "$F"; }
+  echo "$2  $F" | sha256sum -c --quiet - || { echo "$F is not the file expected (SHA-256)" >&2; exit 1; }
+}
+
 # zig, pinned: it compiles everything for the guest, and its musl and compiler-rt are linked into every program (so
 # its archive is among the sources too)
 ZIG=0.17.0

@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Programs beyond BusyBox, built static for i386 + musl like BusyBox (zig cc, Pentium instructions) and installed
 # into $WORK/extras, which build.sh copies into the root file system: dropbear (SSH server and client, scp), gpm (the
-# console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython.
+# console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython, lynx (a web
+# browser, with LibreSSL for HTTPS and Mozilla's CA certificates as curl publishes them).
 # Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm) and python3 on this computer.
 # Run before build.sh:  ./extras.sh   (RELEASE=1 as for build.sh: a clean checkout, every source unpacked anew)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
 DROPBEAR=2026.94 GPM=1.20.7 NCURSES=6.6 NANO=9.3 HTOP=3.5.3 LUA=5.5.1 MUSL=1.2.6 TCC=e23dabed154a8495f3ac1ff3cc9d04fa1c207893
-MPY=1.29.0
+MPY=1.29.0 LIBRESSL=4.3.4 LYNX=2.9.3 CACERT=2026-10-20
 mkdir -p "$WORK/pkgs"
 cd "$WORK"
 Z=$HERE/tools/zcc
@@ -37,6 +38,15 @@ fetch https://musl.libc.org/releases/musl-$MUSL.tar.gz musl-$MUSL \
   d585fd3b613c66151fc3249e8ed44f77020cb5e6c1e635a616d3f9f82460512a
 fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropython-$MPY \
   d925a7c664e79a2bdf3dfcb285ba5e2237041cc35a0bd4ee573b6c5711efeca0
+fetch https://cdn.openbsd.org/pub/OpenBSD/LibreSSL/libressl-$LIBRESSL.tar.gz libressl-$LIBRESSL \
+  57c8b2f8c6f9505587abaeddab003ea243d615edb7ed71957968121fc6316bd6
+fetch https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2 lynx$LYNX \
+  174b7f2866a60f3247ba75f5c7dbb10b124aede4a1359312de15f3bfebd2050f
+fetch_file https://curl.se/ca/cacert-$CACERT.pem 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
+install -D -m644 "$F" "$EX/etc/ssl/cert.pem"   # (where LibreSSL looks: its OPENSSLDIR, below)
+fetch_file https://www.mozilla.org/media/MPL/2.0/index.txt \
+  3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04 MPL-2.0.txt
+MPL=$F   # (the certificates' licence: Mozilla's certdata.txt, which the bundle is made from)
 rm -rf "tinycc-${TCC:?}"   # (unpacked anew: changed below)
 fetch https://github.com/TinyCC/tinycc/archive/$TCC.tar.gz tinycc-$TCC \
   d2470fdeed862ddb18f4ec4e6a405fa984580c3d85c38492516749c61931c30e
@@ -112,6 +122,21 @@ mkdir -p "$EX/usr/sbin" "$EX/etc/dropbear" && ln -sf ../bin/dropbearmulti "$EX/u
    LDFLAGS_EXTRA=-static LDFLAGS_ARCH=-Wl,--gc-sections >/dev/null 2>&1 &&
  install -D -m755 build-standard/micropython "$EX/usr/bin/micropython")
 
+# LibreSSL (static, C only: its assembly may use instructions past the Pentium) for lynx
+(cd libressl-$LIBRESSL && ./configure -q "${HOST[@]}" CC="$Z" AR="zig ar" RANLIB="zig ranlib" --prefix=/usr \
+   --with-openssldir=/etc/ssl --disable-shared --enable-static --disable-asm --disable-tests >/dev/null &&
+ make -s -j"$(nproc)" -C crypto >/dev/null 2>&1 && make -s -j"$(nproc)" -C ssl >/dev/null 2>&1 &&
+ make -s -C crypto install DESTDIR="$SYS" >/dev/null && make -s -C ssl install DESTDIR="$SYS" >/dev/null &&
+ make -s -C include install DESTDIR="$SYS" >/dev/null)
+
+# lynx, with HTTPS and the mouse
+(cd lynx$LYNX && ./configure -q "${HOST[@]}" CC="$Z" BUILD_CC=cc --prefix=/usr --sysconfdir=/etc --disable-nls \
+   --with-screen=ncursesw --with-curses-dir="$SYS/usr" --with-ssl="$SYS/usr" --enable-default-colors \
+   --enable-color-style --enable-ipv6 --disable-full-paths --disable-config-info "${NC[@]}" LIBS=-lgpm \
+   CFLAGS="-O2 -DNO_BUILDSTAMP" cf_cv_getaddrinfo=yes >/dev/null &&
+ make -s -j"$(nproc)" >/dev/null 2>&1 && install -D -m755 -t "$EX/usr/bin" lynx &&
+ install -D -m644 lynx.cfg "$EX/etc/lynx.cfg" && install -D -m644 samples/lynx.lss "$EX/etc/lynx.lss")
+
 # their licences (build.sh adds the kernel's, BusyBox's, the C library's and the loader's)
 L=$EX/usr/share/licenses
 install -D -m644 -t "$L/dropbear" dropbear-$DROPBEAR/LICENSE
@@ -124,6 +149,11 @@ mkdir -p "$L/lua" && sed -n '/^\* Copyright (C) 1994/,/^\*\*\*\*/p' lua-$LUA/src
 install -D -m644 -t "$L/musl" musl-$MUSL/COPYRIGHT   # (tcc's C library)
 install -D -m644 -t "$L/tcc" tinycc-$TCC/COPYING tinycc-$TCC/RELICENSING
 install -D -m644 -t "$L/micropython" micropython-$MPY/LICENSE
+install -D -m644 -t "$L/libressl" libressl-$LIBRESSL/COPYING
+install -D -m644 -t "$L/lynx" lynx$LYNX/COPYING lynx$LYNX/COPYHEADER
+install -D -m644 "$MPL" "$L/ca-certificates/MPL-2.0.txt"
+printf '%s\n' "/etc/ssl/cert.pem: Mozilla's CA certificates (certdata.txt, MPL-2.0), as curl publishes them:" \
+  "https://curl.se/ca/cacert-$CACERT.pem" > "$L/ca-certificates/README"
 
 find "$EX" -type f -perm -u+x -exec sh -c 'file "$1" | grep -q ELF && strip "$1"' _ {} \;
 # (debug data out of the libraries too: tcc's own are in .stab sections, with this computer's paths)

@@ -25,3 +25,6 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [Lua](https://www.lua.org) | 5.5.1 | MIT | the image |
 | [Tiny C Compiler](https://repo.or.cz/tinycc.git) | e23dabe | LGPL-2.1-or-later | the image |
 | [MicroPython](https://micropython.org) | 1.29.0 | MIT (parts under other permissive licences, see its LICENSE) | the image |
+| [Lynx](https://lynx.invisible-island.net) | 2.9.3 | GPL-2.0 (its COPYHEADER permits linking with OpenSSL and the like) | the image: the web browser |
+| [LibreSSL](https://www.libressl.org) | 4.3.4 | OpenSSL and SSLeay licences, ISC (see its COPYING) | the image: linked into lynx |
+| Mozilla's CA certificates, as [curl](https://curl.se/docs/caextract.html) publishes them | 2026-10-20 | MPL-2.0 | the image: `/etc/ssl/cert.pem` |
