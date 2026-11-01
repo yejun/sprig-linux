@@ -1,0 +1,185 @@
+TLS sessions kept and resumed, per host[:port] (OpenSSL 1.1 and later): going back to a site skips the server's
+certificate chain and its signature. Each page is a new connection in lynx, and on a slow CPU (an emulated Pentium)
+those cost seconds every time. Only sessions whose certificate chain verified are kept, and the host name is checked
+on every connection as before. Connections are freed as shut down (HTSSLFree): OpenSSL marks the session of one
+freed without a shutdown as not to be resumed.
+
+--- a/WWW/Library/Implementation/HTTLS.c
++++ b/WWW/Library/Implementation/HTTLS.c
+@@ -103,12 +103,92 @@
+ /* *INDENT-ON* */
+ #endif /* older libssl */
+ 
++#if !defined(USE_GNUTLS_INCL) && OPENSSL_VERSION_NUMBER >= 0x10100000L
++#define USE_SSL_SESSIONS 1
++/*
++ * TLS sessions kept for resumption, by host[:port]: going back to a site skips
++ * the server's certificate chain and its signature, which cost seconds on a
++ * slow CPU.  Only sessions whose certificate chain verified are kept; the host
++ * name is checked again (cert_valid) on every connection.
++ */
++#define SSL_SESSIONS 8
++static struct {
++    char *key;
++    SSL_SESSION *session;
++} ssl_sessions[SSL_SESSIONS];
++static int ssl_session_next;
++static int ssl_key_index = -1;
++
++static int find_session(const char *key)
++{
++    int i;
++
++    for (i = 0; i < SSL_SESSIONS; ++i) {
++	if (ssl_sessions[i].key != NULL && !strcmp(ssl_sessions[i].key, key))
++	    return i;
++    }
++    return -1;
++}
++
++static void forget_session(int i)
++{
++    if (ssl_sessions[i].session != NULL)
++	SSL_SESSION_free(ssl_sessions[i].session);
++    ssl_sessions[i].session = NULL;
++    FREE(ssl_sessions[i].key);
++}
++
++/* OpenSSL's new-session callback (TLS 1.3: a ticket, after the handshake) */
++static int new_session(SSL * handle, SSL_SESSION * session)
++{
++    const char *key = (const char *) SSL_get_ex_data(handle, ssl_key_index);
++    int i;
++
++    if (key == NULL || SSL_get_verify_result(handle) != X509_V_OK)
++	return 0;
++    if ((i = find_session(key)) < 0) {
++	i = ssl_session_next;
++	ssl_session_next = (ssl_session_next + 1) % SSL_SESSIONS;
++    }
++    forget_session(i);
++    StrAllocCopy(ssl_sessions[i].key, key);
++    ssl_sessions[i].session = session;
++    CTRACE((tfp, "HTTLS: keeping a session for %s\n", key));
++    return 1;			/* (ours now) */
++}
++
++static void free_key(void *parent GCC_UNUSED, void *ptr,
++		     CRYPTO_EX_DATA * ad GCC_UNUSED, int idx GCC_UNUSED,
++		     long argl GCC_UNUSED, void *argp GCC_UNUSED)
++{
++    free(ptr);
++}
++#endif /* OpenSSL 1.1 or later */
++
+ static void free_ssl_ctx(void)
+ {
++#ifdef USE_SSL_SESSIONS
++    int i;
++
++    for (i = 0; i < SSL_SESSIONS; ++i)
++	forget_session(i);
++#endif
+     if (ssl_ctx != NULL)
+ 	SSL_CTX_free(ssl_ctx);
+ }
+ 
++/*
++ * A connection done with.  Freed without a shutdown, OpenSSL would mark its
++ * session as not to be resumed.
++ */
++void HTSSLFree(SSL * handle)
++{
++#ifdef USE_SSL_SESSIONS
++    SSL_set_shutdown(handle, SSL_SENT_SHUTDOWN | SSL_RECEIVED_SHUTDOWN);
++#endif
++    SSL_free(handle);
++}
++
+ static BOOL needs_limit(const char *actual)
+ {
+     return ((int) strlen(actual) > LYcols - 7) ? TRUE : FALSE;
+@@ -229,6 +309,12 @@
+ #endif
+ 	    SSL_CTX_set_default_verify_paths(ssl_ctx);
+ 	    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, HTSSLCallback);
++#ifdef USE_SSL_SESSIONS
++	    SSL_CTX_set_session_cache_mode(ssl_ctx, SSL_SESS_CACHE_CLIENT |
++					   SSL_SESS_CACHE_NO_INTERNAL_STORE);
++	    SSL_CTX_sess_set_new_cb(ssl_ctx, new_session);
++	    ssl_key_index = SSL_get_ex_new_index(0, NULL, NULL, NULL, free_key);
++#endif
+ 	}
+ #endif /* SSLEAY_VERSION_NUMBER < 0x0800 */
+ #if defined(USE_PROGRAM_DIR) & !defined(USE_GNUTLS_INCL)
+@@ -896,18 +982,40 @@
+     SSL_set_fd(handle, fd);
+     host = get_host(url);
+     configure_handle(handle, host, min_version, max_version);
++#ifdef USE_SSL_SESSIONS
++    {
++	char *key = HTParse(url, "", PARSE_HOST);	/* (freed with the handle) */
++	int i = find_session(key);
++
++	SSL_set_ex_data(handle, ssl_key_index, key);
++	if (i >= 0)
++	    SSL_set_session(handle, ssl_sessions[i].session);
++    }
++#endif
+     HTSSLInitPRNG();
+     status = SSL_connect(handle);
+     if (status <= 0) {
+ 	print_ssl_connect_error(url, status);
+ 	goto error;
+     }
++#ifdef USE_SSL_SESSIONS
++    CTRACE((tfp, "HTTLS: session %s\n",
++	    SSL_session_reused(handle) ? "resumed" : "new"));
++#endif
+     if (!cert_valid(handle, host)) {
+ 	goto error;
+     }
+ 
+     return handle;
+   error:
++#ifdef USE_SSL_SESSIONS
++    {
++	int i = find_session((const char *) SSL_get_ex_data(handle, ssl_key_index));
++
++	if (i >= 0)
++	    forget_session(i);
++    }
++#endif
+     SSL_free(handle);
+     return NULL;
+ }
+--- a/WWW/Library/Implementation/HTTLS.h
++++ b/WWW/Library/Implementation/HTTLS.h
+@@ -44,6 +44,7 @@
+     extern SSL *HTSSLConnect(int fd, const char *url,
+ 			     int min_version, int max_version);
+     extern void HTSSLInitPRNG(void);
++    extern void HTSSLFree(SSL * handle);
+     extern int HTGetSSLCharacter(void *handle);
+ 
+     /* TLS version number macros for HTSSLConnect */
+--- a/WWW/Library/Implementation/HTTP.c
++++ b/WWW/Library/Implementation/HTTP.c
+@@ -56,7 +56,7 @@
+ #define HTTP_NETCLOSE(sock, handle)  \
+ 	{ (void)NETCLOSE(sock); \
+ 	  if (handle) \
+-	      SSL_free(handle); \
++	      HTSSLFree(handle); \
+ 	  SSL_handle = handle = NULL; \
+ 	}
+ 
+@@ -2121,7 +2121,7 @@
+ #ifdef USE_SSL
+     FREE(connect_host);
+     if (handle) {
+-	SSL_free(handle);
++	HTSSLFree(handle);
+ 	SSL_handle = handle = NULL;
+     }
+ #endif /* USE_SSL */

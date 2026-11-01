@@ -6,7 +6,7 @@ Tab5), and boots in tiny386 elsewhere too.
 
 - Linux 7.3.1, BusyBox 1.37 (static, musl), on an ext4 root file system with a 16 MB swap file
 - nano, htop, Lua, tcc (a C compiler), MicroPython, an SSH server and client (dropbear), the console mouse (gpm),
-  lynx (a web browser, HTTPS with LibreSSL and checked certificates)
+  lynx (a web browser, HTTPS with OpenSSL and checked certificates)
 - network over the PC's NE2000 card (DHCP at boot)
 - a text console, or a graphics console (800 x 600, 256 colours) with the boot logo
 
