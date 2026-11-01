@@ -61,7 +61,8 @@ fi
 
 # BusyBox, static, i386 + musl (tools/zcc: zig cc), Pentium instructions; tc doesn't build with current kernel headers.
 # Zig's libc, built for size with a program built for size (as BusyBox is), copies, fills and measures strings a byte
-# at a time: the link at -O2 instead (ZCC_LINK_O2: tools/zcc; BusyBox's own code stays -Os), and memcpy, memmove,
+# at a time: the link at -O2 instead (ZCC_LINK_O2: tools/zcc; BusyBox's own code stays -Os, but its gzip decompressor
+# and CRC-32: busybox-patches/0003), and memcpy, memmove,
 # memset and strlen from tools/string-i386.S (REP MOVSD and STOSD, which the Tab5's emulator does in bulk). Its
 # object goes into the final link alone (CONFIG_EXTRA_LDLIBS; an archive would not be searched: zig's compiler-rt
 # defines them already, weak). The Sprig workload on the Tab5 (3x ls -lR /, nano, htop, tcc): 81.7 -> 77.8 s.

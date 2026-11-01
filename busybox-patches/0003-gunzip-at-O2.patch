@@ -1,0 +1,24 @@
+The gzip decompressor (gunzip, zcat, tar -z, unzip) and CRC-32 compiled at -O2, the rest of BusyBox at -Os: at -Os
+the bit reader (fill_bitbuffer) is a call for every few bits. On the Tab5 (Lua's source, 1.4 MB): gunzip 3.7-4.0 ->
+2.7-2.8 s, unzip 4.8 -> 3.8 s, tar xzf ~11% faster; BusyBox ~8 KB bigger. (bzip2's and xz's decompressors gained
+nothing at -O2: left at -Os.)
+
+--- a/archival/libarchive/Kbuild.src
++++ b/archival/libarchive/Kbuild.src
+@@ -96,3 +96,7 @@
+ ifneq ($(lib-y),)
+ lib-y += $(COMMON_FILES)
+ endif
++
++# Sprig Linux: the gzip decompressor (gunzip, zcat, tar -z, unzip) at -O2, the rest of BusyBox -Os: at -Os its
++# bit reader (fill_bitbuffer) is a call for every few bits
++CFLAGS_decompress_gunzip.o += -O2
+--- a/libbb/Kbuild.src
++++ b/libbb/Kbuild.src
+@@ -208,3 +208,6 @@
+ 
+ # Add the experimental logging functionality, only used by zcip
+ lib-$(CONFIG_ZCIP) += logenv.o
++
++# Sprig Linux: CRC-32 (gzip, unzip, ...) at -O2
++CFLAGS_crc32.o += -O2
