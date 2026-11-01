@@ -2,3 +2,6 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 export PS1='\h:\w\$ '
 # colours for ls on the graphics console (and over SSH): directories, programs and links apart at a glance
 alias ls='ls --color=auto'
+# lynx's temporary files on the disk: a download is kept there whole before it is saved, and /tmp (2 MB in memory)
+# cut bigger ones short
+export LYNX_TEMP_SPACE=/var/tmp

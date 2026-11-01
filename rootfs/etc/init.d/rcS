@@ -16,6 +16,8 @@ mount -o remount,rw,noatime /
 say "Remounted the root file system read-write"
 mount -t tmpfs -o size=2m tmp /tmp
 say "Mounted /tmp (2 MB in memory)"
+# what a lynx stopped by a switch-off left in /var/tmp (its temporary files: /etc/profile)
+for d in /var/tmp/lynx*; do [ -e "$d" ] && rm -rf /var/tmp/lynx*; break; done
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 say "Mounted /dev/pts"
 read -r host < /etc/hostname && hostname "$host"

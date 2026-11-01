@@ -74,7 +74,8 @@ fi
 # root file system, ext4 with a journal (the emulated PC is often reset or switched off while running): BusyBox (its
 # applets linked at first boot), rootfs/ from here, a 16 MB swap file (filled, not zeros: the kernel refuses a swap
 # file with holes, and mke2fs leaves zeros out); 4 KB blocks for the same reason
-rm -rf root && mkdir -p root/{bin,sbin,usr/bin,usr/sbin,usr/share/udhcpc,proc,sys,dev,tmp,root,var/run,var/log,home,mnt}
+rm -rf root && mkdir -p root/{bin,sbin,usr/bin,usr/sbin,usr/share/udhcpc,proc,sys,dev,tmp,root,var/run,var/log,var/tmp,home,mnt}
+chmod 1777 root/var/tmp   # (temporary files too big for /tmp's 2 MB in memory: lynx's downloads, /etc/profile)
 cp -r "$HERE/rootfs/." root/
 [[ -d "$WORK/extras" ]] && cp -a "$WORK/extras/." root/   # from extras.sh, if run
 cp busybox-$BBVER/busybox root/bin/ && ln -s busybox root/bin/sh && ln -s ../bin/busybox root/sbin/init
