@@ -28,4 +28,5 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [MicroPython](https://micropython.org) | 1.29.0 | MIT (parts under other permissive licences, see its LICENSE) | the image |
 | [Lynx](https://lynx.invisible-island.net) | 2.9.3, with lynx-patches/ | GPL-2.0 (its COPYHEADER permits linking with OpenSSL) | the image: the web browser |
 | [OpenSSL](https://openssl-library.org) | 3.6.5 | Apache-2.0 | the image: linked into lynx |
+| [zlib](https://zlib.net) | 1.3.2 | Zlib | the image: linked into lynx |
 | Mozilla's CA certificates, as [curl](https://curl.se/docs/caextract.html) publishes them | 2026-10-20 | MPL-2.0 | the image: `/etc/ssl/certs` |

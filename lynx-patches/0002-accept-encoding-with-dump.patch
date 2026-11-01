@@ -1,0 +1,22 @@
+Accept-Encoding with -dump too: lynx left it out of every request in dump mode, to keep the <BASE> that
+-source prepends right (a FIXME in HTTP.c), and so downloaded every page whole. Now only when the dump isn't the
+rendered page (-source, -mime_header, -convert_to): -dump shows the same from a compressed transfer (gzip: a sixth
+of the bytes for most HTML, to download and decrypt).
+
+--- a/WWW/Library/Implementation/HTTP.c
++++ b/WWW/Library/Implementation/HTTP.c
+@@ -737,8 +737,13 @@
+ 	 * base URL.  This is less efficient than accepting the compressed data
+ 	 * and uncompressing it, adding the base URL but is simpler than
+ 	 * augmenting the dump's presentation logic -TD
++	 *
++	 * Only when the dump isn't the rendered page (-source, -mime_header,
++	 * -convert_to set an output format): a compressed transfer doesn't
++	 * change what -dump shows.
+ 	 */
+-	if (LYPrependBaseToSource && dump_output_immediately) {
++	if (LYPrependBaseToSource && dump_output_immediately &&
++	    HTOutputFormat != NULL) {
+ 	    CTRACE((tfp,
+ 		    "omit Accept-Encoding to work-around interaction with -source\n"));
+ 	} else {
