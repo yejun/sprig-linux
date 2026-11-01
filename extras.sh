@@ -175,8 +175,8 @@ CNF
  make -s -j"$(nproc)" libz.a >/dev/null 2>&1 && install -D -m644 -t "$SYS/usr/lib" libz.a &&
  install -D -m644 -t "$SYS/usr/include" zlib.h zconf.h)
 
-# lynx, with HTTPS, compressed pages and the mouse; it resumes TLS sessions (lynx-patches/0001) and asks for
-# compressed pages with -dump too (0002). Its lynx.cfg without
+# lynx, with HTTPS, compressed pages and the mouse; it resumes TLS sessions (lynx-patches/0001), also those of an
+# earlier lynx (0003: ~/.lynx_tls_sessions), and asks for compressed pages with -dump too (0002). Its lynx.cfg without
 # the comments (3,900 lines: reading them took ~0.5 s at every start on the Tab5); the commented one in
 # /usr/share/doc/lynx
 (cd lynx$LYNX && ./configure -q "${HOST[@]}" CC="$Z" BUILD_CC=cc --prefix=/usr --sysconfdir=/etc --disable-nls \

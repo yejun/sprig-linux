@@ -1,0 +1,144 @@
+TLS sessions kept on disk too (with lynx-patches/0001), in ~/.lynx_tls_sessions (mode 0600: the sessions' secrets
+resume connections), so that the next lynx resumes them as well: a lynx -dump, or lynx started again, skips the
+server's certificate chain and its signature for a site it saw while the ticket lasts (the site says how long:
+minutes to a day; never over 7 days). Written anew at every new session; read at the first TLS connection, the
+expired ones left out. Not with -anonymous; a file that can't be read or written is done without.
+
+--- a/WWW/Library/Implementation/HTTLS.c
++++ b/WWW/Library/Implementation/HTTLS.c
+@@ -18,6 +18,7 @@
+ 
+ #ifdef USE_OPENSSL_INCL
+ #include <openssl/x509v3.h>
++#include <openssl/pem.h>
+ #endif
+ 
+ #ifdef USE_GNUTLS_INCL
+@@ -119,6 +120,93 @@
+ static int ssl_session_next;
+ static int ssl_key_index = -1;
+ 
++#ifdef UNIX
++#define USE_SSL_SESSION_FILE 1
++#include <fcntl.h>
++#include <LYStrings.h>
++/*
++ * The sessions kept in ~/.lynx_tls_sessions too (readable by its owner only:
++ * they hold the secrets that resume them), so that the next lynx resumes them
++ * as well: each host[:port] on a line, then its session (PEM).  Written anew
++ * at every new session; read at the first TLS connection, without the
++ * sessions whose ticket has expired.  Not with -anonymous.
++ */
++static char ssl_session_file[LY_MAXPATH];
++
++static void save_sessions(void)
++{
++    char *temp = NULL;
++    FILE *fp;
++    int fd, i, ok = 1;
++
++    if (ssl_session_file[0] == '\0')
++	return;
++    HTSprintf0(&temp, "%s.new", ssl_session_file);
++    (void) unlink(temp);
++    if ((fd = open(temp, O_WRONLY | O_CREAT | O_EXCL, 0600)) < 0
++	|| (fp = fdopen(fd, "w")) == NULL) {
++	CTRACE((tfp, "HTTLS: can't write %s\n", temp));
++	if (fd >= 0)
++	    close(fd);
++	FREE(temp);
++	return;
++    }
++    fprintf(fp, "# lynx's TLS sessions (they resume connections: keep this file private)\n");
++    for (i = 0; i < SSL_SESSIONS; ++i) {
++	if (ssl_sessions[i].session != NULL) {
++	    fprintf(fp, "%s\n", ssl_sessions[i].key);
++	    ok &= PEM_write_SSL_SESSION(fp, ssl_sessions[i].session);
++	}
++    }
++    if (fclose(fp) != 0 || !ok || rename(temp, ssl_session_file) != 0)
++	(void) unlink(temp);
++    FREE(temp);
++}
++
++static void load_sessions(void)
++{
++    FILE *fp;
++    char line[LY_MAXPATH];
++    SSL_SESSION *session;
++    int n = 0;
++
++    if (LYRestricted)
++	return;
++    LYAddPathToHome(ssl_session_file, sizeof(ssl_session_file),
++		    ".lynx_tls_sessions");
++    if ((fp = fopen(ssl_session_file, "r")) == NULL)
++	return;
++    while (n < SSL_SESSIONS && fgets(line, (int) sizeof(line), fp) != NULL) {
++	time_t age;
++	unsigned long life;
++
++	LYTrimNewline(line);
++	if (line[0] == '#' || line[0] == '\0')
++	    continue;
++	if ((session = PEM_read_SSL_SESSION(fp, NULL, NULL, NULL)) == NULL)
++	    break;
++#if OPENSSL_VERSION_NUMBER >= 0x30300000L
++	age = time(NULL) - SSL_SESSION_get_time_ex(session);
++#else
++	age = time(NULL) - (time_t) SSL_SESSION_get_time(session);
++#endif
++	life = SSL_SESSION_get_ticket_lifetime_hint(session);
++	if (life == 0)
++	    life = (unsigned long) SSL_SESSION_get_timeout(session);
++	if (age < 0 || (unsigned long) age >= life || age >= 7 * 24 * 3600
++	    || !SSL_SESSION_is_resumable(session)) {
++	    SSL_SESSION_free(session);
++	    continue;
++	}
++	StrAllocCopy(ssl_sessions[n].key, line);
++	ssl_sessions[n++].session = session;
++    }
++    fclose(fp);
++    ssl_session_next = n % SSL_SESSIONS;
++    CTRACE((tfp, "HTTLS: %d sessions from %s\n", n, ssl_session_file));
++}
++#endif /* UNIX */
++
+ static int find_session(const char *key)
+ {
+     int i;
+@@ -154,6 +242,9 @@
+     StrAllocCopy(ssl_sessions[i].key, key);
+     ssl_sessions[i].session = session;
+     CTRACE((tfp, "HTTLS: keeping a session for %s\n", key));
++#ifdef USE_SSL_SESSION_FILE
++    save_sessions();
++#endif
+     return 1;			/* (ours now) */
+ }
+ 
+@@ -314,6 +405,9 @@
+ 					   SSL_SESS_CACHE_NO_INTERNAL_STORE);
+ 	    SSL_CTX_sess_set_new_cb(ssl_ctx, new_session);
+ 	    ssl_key_index = SSL_get_ex_new_index(0, NULL, NULL, NULL, free_key);
++#ifdef USE_SSL_SESSION_FILE
++	    load_sessions();
++#endif
+ #endif
+ 	}
+ #endif /* SSLEAY_VERSION_NUMBER < 0x0800 */
+@@ -1012,8 +1106,12 @@
+     {
+ 	int i = find_session((const char *) SSL_get_ex_data(handle, ssl_key_index));
+ 
+-	if (i >= 0)
++	if (i >= 0) {
+ 	    forget_session(i);
++#ifdef USE_SSL_SESSION_FILE
++	    save_sessions();
++#endif
++	}
+     }
+ #endif
+     SSL_free(handle);
