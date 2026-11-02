@@ -53,6 +53,13 @@ instructions, memory, or both.
 - BusyBox's `top` redraws in place (busybox-patches/0001) instead of clearing the screen at each refresh.
 - At the prompt `rcS` resets the scroll region: while the logo is up, the console keeps its rows out of scrolling.
 
+## Shutdown
+
+- `poweroff` writes "Shutdown" to Bochs' shutdown port (0x8900; patches/0007), as the BIOS's APM does under DOS: the
+  kernel starts without BIOS calls, so it has no APM. tiny386 then turns the PC off.
+- `rcK` (init's shutdown action) stops the enabled services, ends the programs, turns the swap file off, unmounts
+  /dev/pts and /tmp and remounts the root file system read-only, so the next start needs no journal recovery.
+
 ## Network
 
 eth0 is the PC's ISA NE2000 (0x300, IRQ 9), configured by DHCP in the background. On the Tab5 PC the guest gets
