@@ -2,5 +2,4 @@
 tty1::respawn:/bin/cttyhack /bin/sh -l
 tty2::askfirst:/bin/sh -l
 ::ctrlaltdel:/sbin/reboot
-::shutdown:/sbin/swapoff -a
-::shutdown:/bin/umount -a -r
+::shutdown:/etc/init.d/rcK

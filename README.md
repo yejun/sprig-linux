@@ -56,6 +56,9 @@ makes BusyBox's links (a few minutes); after that Linux is at the prompt in abou
 (`sshd disable`, `sshd stop`, `sshd status`). It lets root in once root has a password (`passwd`); on the Tab5 PC
 from another computer: `ssh -p 2222 root@<the Tab5's address>`.
 
+`poweroff` ends Linux cleanly (services stopped, the swap file off, the disk read-only) and turns the PC off: the Tab5
+PC shows "The PC is off", and its POWER button starts it again. `reboot` starts Linux again.
+
 ## Notes
 
 How it is set up and why (kernel options, the console, memory, speed): [docs/NOTES.md](docs/NOTES.md).

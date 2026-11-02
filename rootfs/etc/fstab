@@ -1,0 +1,8 @@
+# The file systems and swap (rcS mounts them at start, rcK at shutdown; the root one is the kernel's, /dev is
+# devtmpfs). <file system> <mount point> <type> <options> <dump> <pass>
+/dev/root   /         ext4     rw,noatime  0 0
+proc        /proc     proc     defaults    0 0
+sys         /sys      sysfs    defaults    0 0
+devpts      /dev/pts  devpts   defaults    0 0
+tmp         /tmp      tmpfs    size=2m     0 0
+/swapfile   none      swap     sw          0 0

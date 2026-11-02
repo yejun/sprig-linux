@@ -1,0 +1,26 @@
+#!/bin/sh
+# Shutdown, for poweroff, reboot and halt (BusyBox init runs it first, then ends what is left): services stopped,
+# programs ended, the swap file off, file systems unmounted and the root one read-only, with a line for each as rcS.
+echo   # (after the shell's prompt, where poweroff was typed)
+say() {   # say <what>: after a step, its result ($?) and what it was
+  if [ $? -eq 0 ]; then printf '[\033[1;32m  OK  \033[0m] %s\n' "$1"; else printf '[\033[1;31mFAILED\033[0m] %s\n' "$1"; fi
+}
+for s in /etc/rc.d/*; do
+  [ -x "$s" ] || continue
+  "$s" stop >/dev/null 2>&1
+  say "Stopped ${s##*/}"
+done
+# every other program (not init, not this script): so that none holds a file open for writing on the root
+kill -TERM -1 2>/dev/null
+sleep 1
+kill -KILL -1 2>/dev/null
+say "Ended the programs"
+if grep -q '^/swapfile ' /proc/swaps 2>/dev/null; then
+  swapoff /swapfile
+  say "Deactivated the swap file"
+fi
+umount /dev/pts /tmp 2>/dev/null
+say "Unmounted /dev/pts and /tmp"
+sync
+mount -o remount,ro /
+say "Remounted the root file system read-only"

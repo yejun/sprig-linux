@@ -1,0 +1,37 @@
+x86: power off through Bochs' shutdown port, which the tiny386 emulator has: "Shutdown" written to port 0x8900 (as
+its BIOS's APM does). A kernel the emulator starts directly makes no BIOS calls, so it has no APM, and poweroff only
+halted it: the emulated PC went on running. A handler of last resort; elsewhere the kernel halts as before.
+
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -757,6 +757,30 @@
+ 	tboot_shutdown(TB_SHUTDOWN_HALT);
+ }
+ 
++/*
++ * Bochs' shutdown port, which the tiny386 emulator has too: "Shutdown" written
++ * to it powers the machine off, as its BIOS's APM does. A kernel started
++ * directly by the emulator makes no BIOS calls, so it has no APM; this is its
++ * way to power off. A handler of last resort: anything else goes first, and
++ * where nothing listens on the port the kernel halts as before.
++ */
++static int bochs_port_power_off(struct sys_off_data *data)
++{
++	const char *s = "Shutdown";
++
++	while (*s)
++		outb(*s++, 0x8900);
++	return NOTIFY_DONE;
++}
++
++static int __init bochs_port_power_off_init(void)
++{
++	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF, SYS_OFF_PRIO_LOW,
++				 bochs_port_power_off, NULL);
++	return 0;
++}
++late_initcall(bochs_port_power_off_init);
++
+ struct machine_ops machine_ops __ro_after_init = {
+ 	.power_off = native_machine_power_off,
+ 	.shutdown = native_machine_shutdown,
