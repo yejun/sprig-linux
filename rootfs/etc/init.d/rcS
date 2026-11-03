@@ -18,6 +18,9 @@ mount -t tmpfs -o size=2m tmp /tmp
 say "Mounted /tmp (2 MB in memory)"
 # what a lynx stopped by a switch-off left in /var/tmp (its temporary files: /etc/profile)
 for d in /var/tmp/lynx*; do [ -e "$d" ] && rm -rf /var/tmp/lynx*; break; done
+# process ID files left by a switch-off (/var/run is on the disk): none of those processes runs now. gpm took an
+# empty one (a reset just after it wrote it) for "already running as -1" and quit at every start.
+for f in /var/run/*.pid; do [ -e "$f" ] && rm -f /var/run/*.pid; break; done
 mkdir -p /dev/pts && mount -t devpts devpts /dev/pts
 say "Mounted /dev/pts"
 read -r host < /etc/hostname && hostname "$host"
