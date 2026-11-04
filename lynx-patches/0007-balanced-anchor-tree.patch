@@ -1,0 +1,464 @@
+The tree of a page's named anchors (HTBTree) balanced as an AVL tree. Its balancing gave up after seven corrections
+per insertion, and the anchors of a page, added in the page's order (cite_note-1, cite_ref-1, ...), made a tree
+deep enough to take ~66 string comparisons to find or add one, where a balanced one takes ~22: on Wikipedia's
+article on the 80386 (2,400 anchors) 155 -> 145 M instructions for lynx -dump. The order of the elements (equal ones
+after those already there: directory listings) is unchanged.
+
+--- a/WWW/Library/Implementation/HTBTree.c
++++ b/WWW/Library/Implementation/HTBTree.c
+@@ -102,361 +102,116 @@
+ /*********************************************************************
+  * This void is the core of HTBTree.c . It will
+  *       1/ add a new element to the tree at the right place
+- *		so that the tree remains sorted
++ *		so that the tree remains sorted (an element equal to one
++ *		already there goes after it)
+  *       2/ balance the tree to be as fast as possible when reading it
++ *		(an AVL tree: the depths of an element's two sides differ by
++ *		one at most; the earlier balancing gave up after seven
++ *		corrections, and a page's anchors, added in the order of the
++ *		page, could take 60 comparisons each to find)
+  */
++#define BT_DEPTH(e) ((e) ? 1 + MAXIMUM((e)->left_depth, (e)->right_depth) : 0)	/* (e: no side effects) */
++
++/* Put the element on the side "left" (or the right) of "e" in its place,
++ * with e below it on the other side; returns it.
++ */
++static HTBTElement *HTBTree_rotate(HTBTree *tree, HTBTElement *e, int left)
++{
++    HTBTElement *c = left ? e->left : e->right;
++    HTBTElement *inner = left ? c->right : c->left;
++
++    if (left) {
++	e->left = inner;
++	e->left_depth = BT_DEPTH(inner);
++	c->right = e;
++    } else {
++	e->right = inner;
++	e->right_depth = BT_DEPTH(inner);
++	c->left = e;
++    }
++    if (inner != NULL)
++	inner->up = e;
++    c->up = e->up;
++    if (e->up == NULL)
++	tree->top = c;
++    else if (e->up->left == e)
++	e->up->left = c;
++    else
++	e->up->right = c;
++    e->up = c;
++    if (left)
++	c->right_depth = BT_DEPTH(e);
++    else
++	c->left_depth = BT_DEPTH(e);
++    return c;
++}
++
+ void HTBTree_add(HTBTree *tree,
+ 		 void *object)
+ {
+-    HTBTElement *father_of_element;
+-    HTBTElement *added_element;
+-    HTBTElement *forefather_of_element;
+-    HTBTElement *father_of_forefather;
+-    BOOL father_found, top_found;
+-    int depth, depth2, corrections;
+-
+-    /* father_of_element is a pointer to the structure that is the father of
+-     * the new object "object".  added_element is a pointer to the structure
+-     * that contains or will contain the new object "object".
+-     * father_of_forefather and forefather_of_element are pointers that are
+-     * used to modify the depths of upper elements, when needed.
+-     *
+-     * father_found indicates by a value NO when the future father of "object"
+-     * is found.  top_found indicates by a value NO when, in case of a
+-     * difference of depths < 2, the top of the tree is encountered and forbids
+-     * any further try to balance the tree.  corrections is an integer used to
+-     * avoid infinite loops in cases such as:
+-     *
+-     *             3                        3
+-     *          4                              4
+-     *           5                            5
+-     *
+-     * 3 is used here to show that it need not be the top of the tree.
+-     */
++    HTBTElement *father = NULL;
++    HTBTElement *cur = tree->top;
++    HTBTElement *added;
++    int to_left = 0;
+ 
+     /*
+      * 1/ Adding of the element to the binary tree
+      */
++    while (cur != NULL) {
++	father = cur;
++	to_left = tree->compare(object, cur->object) < 0;
++	cur = to_left ? cur->left : cur->right;
++    }
++    added = typeMalloc(HTBTElement);
+ 
+-    if (tree->top == NULL) {
+-	tree->top = typeMalloc(HTBTElement);
++    if (added == NULL)
++	outofmem(__FILE__, "HTBTree_add");
+ 
+-	if (tree->top == NULL)
+-	    outofmem(__FILE__, "HTBTree_add");
++    added->up = father;
++    added->object = object;
++    added->left = NULL;
++    added->left_depth = 0;
++    added->right = NULL;
++    added->right_depth = 0;
++    if (father == NULL) {
++	tree->top = added;
++	return;
++    }
++    if (to_left)
++	father->left = added;
++    else
++	father->right = added;
+ 
+-	tree->top->up = NULL;
+-	tree->top->object = object;
+-	tree->top->left = NULL;
+-	tree->top->left_depth = 0;
+-	tree->top->right = NULL;
+-	tree->top->right_depth = 0;
+-    } else {
+-	father_found = YES;
+-	father_of_element = tree->top;
+-	added_element = NULL;
+-	father_of_forefather = NULL;
+-	forefather_of_element = NULL;
+-	while (father_found) {
+-	    int res = tree->compare(object, father_of_element->object);
+-
+-	    if (res < 0) {
+-		if (father_of_element->left != NULL)
+-		    father_of_element = father_of_element->left;
+-		else {
+-		    father_found = NO;
+-		    father_of_element->left = typeMalloc(HTBTElement);
+-
+-		    if (father_of_element->left == NULL)
+-			outofmem(__FILE__, "HTBTree_add");
+-
+-		    added_element = father_of_element->left;
+-		    added_element->up = father_of_element;
+-		    added_element->object = object;
+-		    added_element->left = NULL;
+-		    added_element->left_depth = 0;
+-		    added_element->right = NULL;
+-		    added_element->right_depth = 0;
+-		}
+-	    } else {		/* res >= 0 */
+-		if (father_of_element->right != NULL) {
+-		    father_of_element = father_of_element->right;
+-		} else {
+-		    father_found = NO;
+-		    father_of_element->right = typeMalloc(HTBTElement);
+-
+-		    if (father_of_element->right == NULL)
+-			outofmem(__FILE__, "HTBTree_add");
+-
+-		    added_element = father_of_element->right;
+-		    added_element->up = father_of_element;
+-		    added_element->object = object;
+-		    added_element->left = NULL;
+-		    added_element->left_depth = 0;
+-		    added_element->right = NULL;
+-		    added_element->right_depth = 0;
+-		}
+-	    }
+-	}
++    /*
++     * 2/ The depths above it, up to an element whose depth doesn't change,
++     * and the balance where a side became two deeper than the other
++     */
++    for (cur = added; cur->up != NULL;) {
++	HTBTElement *e = cur->up;
++	int old = BT_DEPTH(e);
++
++	if (e->left == cur)
++	    e->left_depth = BT_DEPTH(cur);
++	else
++	    e->right_depth = BT_DEPTH(cur);
++	if (e->left_depth - e->right_depth > 1) {
++	    if (e->left->right_depth > e->left->left_depth) {
++		HTBTElement *c = HTBTree_rotate(tree, e->left, 0);
+ 
+-	/*
+-	 * Changing of all depths that need to be changed
+-	 */
+-	father_of_forefather = father_of_element;
+-	forefather_of_element = added_element;
+-	do {
+-	    if (father_of_forefather->left == forefather_of_element) {
+-		depth = father_of_forefather->left_depth;
+-		father_of_forefather->left_depth = 1
+-		    + MAXIMUM(forefather_of_element->right_depth,
+-			      forefather_of_element->left_depth);
+-		depth2 = father_of_forefather->left_depth;
+-	    } else {
+-		depth = father_of_forefather->right_depth;
+-		father_of_forefather->right_depth = 1
+-		    + MAXIMUM(forefather_of_element->right_depth,
+-			      forefather_of_element->left_depth);
+-		depth2 = father_of_forefather->right_depth;
++		e->left_depth = BT_DEPTH(c);
+ 	    }
+-	    forefather_of_element = father_of_forefather;
+-	    father_of_forefather = father_of_forefather->up;
+-	} while ((depth != depth2) && (father_of_forefather != NULL));
+-
+-	/*
+-	 * 2/ Balancing the binary tree, if necessary
+-	 */
+-	top_found = YES;
+-	corrections = 0;
+-	while ((top_found) && (corrections < 7)) {
+-	    if ((abs(father_of_element->left_depth
+-		     - father_of_element->right_depth)) < 2) {
+-		if (father_of_element->up != NULL)
+-		    father_of_element = father_of_element->up;
+-		else
+-		    top_found = NO;
+-	    } else {		/* We start the process of balancing */
+-
+-		corrections = corrections + 1;
+-		/*
+-		 * corrections is an integer used to avoid infinite
+-		 * loops in cases such as:
+-		 *
+-		 *             3                        3
+-		 *          4                              4
+-		 *           5                            5
+-		 *
+-		 * 3 is used to show that it need not be the top of the tree
+-		 * But let's avoid these two exceptions anyhow
+-		 * with the two following conditions (4 March 94 - AS)
+-		 */
+-
+-		if (father_of_element->left == NULL) {
+-		    if ((father_of_element->right != NULL)
+-			&& (father_of_element->right->right == NULL)
+-			&& (father_of_element->right->left != NULL)
+-			&& (father_of_element->right->left->left == NULL)
+-			&& (father_of_element->right->left->right == NULL)) {
+-			corrections = 7;
+-		    }
+-		} else {
+-		    if ((father_of_element->right == NULL)
+-			&& (father_of_element->left->left == NULL)
+-			&& (father_of_element->left->right != NULL)
+-			&& (father_of_element->left->right->right == NULL)
+-			&& (father_of_element->left->right->left == NULL)) {
+-			corrections = 7;
+-		    }
+-		}
+-
+-		if ((father_of_element->left != NULL)
+-		    && (father_of_element->left_depth > father_of_element->right_depth)) {
+-		    added_element = father_of_element->left;
+-		    father_of_element->left_depth = added_element->right_depth;
+-		    added_element->right_depth = 1
+-			+ MAXIMUM(father_of_element->right_depth,
+-				  father_of_element->left_depth);
+-		    if (father_of_element->up != NULL) {
+-			/* Bug fixed in March 94  -  AS */
+-			BOOL first_time;
+-
+-			father_of_forefather = father_of_element->up;
+-			forefather_of_element = added_element;
+-			first_time = YES;
+-			do {
+-			    if (father_of_forefather->left
+-				== forefather_of_element->up) {
+-				depth = father_of_forefather->left_depth;
+-				if (first_time) {
+-				    father_of_forefather->left_depth = 1
+-					+ MAXIMUM(forefather_of_element->left_depth,
+-						  forefather_of_element->right_depth);
+-				    first_time = NO;
+-				} else
+-				    father_of_forefather->left_depth = 1
+-					+ MAXIMUM(forefather_of_element->up->left_depth,
+-						  forefather_of_element->up->right_depth);
+-
+-				depth2 = father_of_forefather->left_depth;
+-			    } else {
+-				depth = father_of_forefather->right_depth;
+-				if (first_time) {
+-				    father_of_forefather->right_depth = 1
+-					+ MAXIMUM(forefather_of_element->left_depth,
+-						  forefather_of_element->right_depth);
+-				    first_time = NO;
+-				} else
+-				    father_of_forefather->right_depth = 1
+-					+ MAXIMUM(forefather_of_element->up->left_depth,
+-						  forefather_of_element->up->right_depth);
+-				depth2 = father_of_forefather->right_depth;
+-			    }
+-			    forefather_of_element = forefather_of_element->up;
+-			    father_of_forefather = father_of_forefather->up;
+-			} while ((depth != depth2) &&
+-				 (father_of_forefather != NULL));
+-			father_of_forefather = father_of_element->up;
+-			if (father_of_forefather->left == father_of_element) {
+-			    /*
+-			     *                   3                       3
+-			     *               4                       5
+-			     * When tree   5   6        becomes    7    4
+-			     *            7 8                          8 6
+-			     *
+-			     * 3 is used to show that it may not be the top of the
+-			     * tree.
+-			     */
+-			    father_of_forefather->left = added_element;
+-			    father_of_element->left = added_element->right;
+-			    added_element->right = father_of_element;
+-			}
+-			if (father_of_forefather->right == father_of_element) {
+-			    /*
+-			     *          3                       3
+-			     *               4                       5
+-			     * When tree   5   6        becomes    7    4
+-			     *            7 8                          8 6
+-			     *
+-			     * 3 is used to show that it may not be the top of the
+-			     * tree
+-			     */
+-			    father_of_forefather->right = added_element;
+-			    father_of_element->left = added_element->right;
+-			    added_element->right = father_of_element;
+-			}
+-			added_element->up = father_of_forefather;
+-		    } else {
+-			/*
+-
+-			 *               1                       2
+-			 * When tree   2   3        becomes    4    1
+-			 *            4 5                          5 3
+-			 *
+-			 * 1 is used to show that it is the top of the tree
+-			 */
+-			added_element->up = NULL;
+-			father_of_element->left = added_element->right;
+-			added_element->right = father_of_element;
+-		    }
+-		    father_of_element->up = added_element;
+-		    if (father_of_element->left != NULL)
+-			father_of_element->left->up = father_of_element;
+-		} else if (father_of_element->right != NULL) {
+-		    added_element = father_of_element->right;
+-		    father_of_element->right_depth = added_element->left_depth;
+-		    added_element->left_depth = 1 +
+-			MAXIMUM(father_of_element->right_depth,
+-				father_of_element->left_depth);
+-		    if (father_of_element->up != NULL)
+-			/* Bug fixed in March 94  -  AS */
+-		    {
+-			BOOL first_time;
+-
+-			father_of_forefather = father_of_element->up;
+-			forefather_of_element = added_element;
+-			first_time = YES;
+-			do {
+-			    if (father_of_forefather->left
+-				== forefather_of_element->up) {
+-				depth = father_of_forefather->left_depth;
+-				if (first_time) {
+-				    father_of_forefather->left_depth = 1
+-					+ MAXIMUM(forefather_of_element->left_depth,
+-						  forefather_of_element->right_depth);
+-				    first_time = NO;
+-				} else
+-				    father_of_forefather->left_depth = 1
+-					+ MAXIMUM(forefather_of_element->up->left_depth,
+-						  forefather_of_element->up->right_depth);
+-				depth2 = father_of_forefather->left_depth;
+-			    } else {
+-				depth = father_of_forefather->right_depth;
+-				if (first_time) {
+-				    father_of_forefather->right_depth = 1
+-					+ MAXIMUM(forefather_of_element->left_depth,
+-						  forefather_of_element->right_depth);
+-				    first_time = NO;
+-				} else
+-				    father_of_forefather->right_depth = 1
+-					+ MAXIMUM(forefather_of_element->up->left_depth,
+-						  forefather_of_element->up->right_depth);
+-				depth2 = father_of_forefather->right_depth;
+-			    }
+-			    father_of_forefather = father_of_forefather->up;
+-			    forefather_of_element = forefather_of_element->up;
+-			} while ((depth != depth2) &&
+-				 (father_of_forefather != NULL));
+-			father_of_forefather = father_of_element->up;
+-			if (father_of_forefather->left == father_of_element) {
+-			    /*
+-			     *                    3                       3
+-			     *               4                       6
+-			     * When tree   5   6        becomes    4    8
+-			     *                7 8                 5 7
+-			     *
+-			     * 3 is used to show that it may not be the top of the
+-			     * tree.
+-			     */
+-			    father_of_forefather->left = added_element;
+-			    father_of_element->right = added_element->left;
+-			    added_element->left = father_of_element;
+-			}
+-			if (father_of_forefather->right == father_of_element) {
+-			    /*
+-			     *           3                      3
+-			     *               4                       6
+-			     * When tree   5   6        becomes    4    8
+-			     *                7 8                 5 7
+-			     *
+-			     * 3 is used to show that it may not be the top of the
+-			     * tree
+-			     */
+-			    father_of_forefather->right = added_element;
+-			    father_of_element->right = added_element->left;
+-			    added_element->left = father_of_element;
+-			}
+-			added_element->up = father_of_forefather;
+-		    } else {
+-			/*
+-
+-			 *               1                       3
+-			 * When tree   2   3        becomes    1    5
+-			 *                4 5                 2 4
+-			 *
+-			 * 1 is used to show that it is the top of the tree.
+-			 */
+-			added_element->up = NULL;
+-			father_of_element->right = added_element->left;
+-			added_element->left = father_of_element;
+-		    }
+-		    father_of_element->up = added_element;
+-		    if (father_of_element->right != NULL)
+-			father_of_element->right->up = father_of_element;
+-		}
++	    e = HTBTree_rotate(tree, e, 1);
++	} else if (e->right_depth - e->left_depth > 1) {
++	    if (e->right->left_depth > e->right->right_depth) {
++		HTBTElement *c = HTBTree_rotate(tree, e->right, 1);
++
++		e->right_depth = BT_DEPTH(c);
+ 	    }
++	    e = HTBTree_rotate(tree, e, 0);
+ 	}
+-	while (father_of_element->up != NULL) {
+-	    father_of_element = father_of_element->up;
+-	}
+-	tree->top = father_of_element;
++	if (BT_DEPTH(e) == old)
++	    break;
++	cur = e;
+     }
+ }
+ 

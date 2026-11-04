@@ -187,11 +187,12 @@ CNF
  install -D -m644 -t "$SYS/usr/include/brotli" c/include/brotli/*.h)
 
 # lynx, with HTTPS, compressed pages and the mouse; it resumes TLS sessions (lynx-patches/0001), also those of an
-# earlier lynx (0003: ~/.lynx_tls_sessions), asks for compressed pages with -dump too (0002), and sets TLS up before it
-# connects (0004). NCURSES_CONFIG=none: not this computer's ncursesw6-config (Ubuntu's adds -ltinfo, which the
-# guest's ncurses doesn't have). Its lynx.cfg without the comments (3,900 lines: reading them took ~0.5 s at every
-# start on the Tab5; the commented one in /usr/share/doc/lynx), and Sprig's start page (rootfs/usr/share/sprig) in
-# place of lynx's home page, which takes ~8 s to open on the Tab5 and a network
+# earlier lynx (0003: ~/.lynx_tls_sessions), asks for compressed pages with -dump too (0002), and sets TLS up before
+# it connects (0004); its HTML parser takes plain ASCII the short way (0006) and finds a page's anchors in a balanced
+# tree (0007): a large page ~10% faster. NCURSES_CONFIG=none: not this computer's ncursesw6-config (Ubuntu's adds
+# -ltinfo, which the guest's ncurses doesn't have). Its lynx.cfg without the comments (3,900 lines: reading them took
+# ~0.5 s at every start on the Tab5; the commented one in /usr/share/doc/lynx), and Sprig's start page
+# (rootfs/usr/share/sprig) in place of lynx's home page, which takes ~8 s to open on the Tab5 and a network
 (cd lynx$LYNX && ./configure -q "${HOST[@]}" CC="$Z" BUILD_CC=cc --prefix=/usr --sysconfdir=/etc --disable-nls \
    --with-screen=ncursesw --with-curses-dir="$SYS/usr" --with-ssl="$SYS/usr" --with-zlib --with-brotli \
    --enable-default-colors \
