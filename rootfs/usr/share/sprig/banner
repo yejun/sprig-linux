@@ -1,4 +1,5 @@
-# Sprig's card at the end of startup (sourced by /etc/init.d/rcS; "sh /usr/share/sprig/banner" shows it again): the
+# Sprig's card at the end of startup (sourced by /etc/init.d/rcS), at SSH logins (/etc/profile) and with
+# "sh /usr/share/sprig/banner": the
 # version, what the machine has and a few commands, beside a sprig. Shell built-ins but one df (a program started
 # costs the guest ~170 ms). Colours and columns are ANSI codes, bold for the bright colours (the Linux console's
 # way), which an SSH terminal shows the same. On the 100-column graphics console the card is 9 rows: printed after
@@ -7,9 +8,11 @@ E=$'\033'
 N="$E[0m" G="$E[1;32m" g="$E[22;32m" Y="$E[1;33m" T="$E[22;33m" C="$E[22;36m" B="$E[1;36m" W="$E[1;37m"
 w="$E[22;37m" D="$E[1;30m" R="$E[1;31m"
 
-# the console's width: the frame buffer's, 8 pixels a character (80 on the text console)
+# the width: $COLUMNS (an SSH login's terminal: /etc/profile), else the console's, the frame buffer's at 8 pixels a
+# character (80 on the text console)
 cols=80
 [ -r /sys/class/graphics/fb0/virtual_size ] && read -r vs < /sys/class/graphics/fb0/virtual_size && cols=$((${vs%,*} / 8))
+case $COLUMNS in "" | *[!0-9]*) ;; *) [ "$COLUMNS" -ge 60 ] && cols=$COLUMNS ;; esac
 
 ver=?
 if [ -r /etc/os-release ]; then
