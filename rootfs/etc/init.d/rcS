@@ -52,12 +52,10 @@ echo 4 > /proc/sys/kernel/printk   # from now on only warnings on the console (n
 # programs being started out of the emulator's 3 MB of translated code (starting several programs in turn then took
 # 60% longer). echo 1 to have it blink.
 [ -w /sys/class/graphics/fbcon/cursor_blink ] && echo 0 > /sys/class/graphics/fbcon/cursor_blink
-read -r up _ < /proc/uptime
-read -r release < /proc/sys/kernel/osrelease
-echo
-echo "Welcome to Linux $release on $host (Linux started in ${up%.*} s)"
-echo
-free -k
+# Sprig's card: the version, what the machine has and a few commands, beside a sprig (/usr/share/sprig/banner;
+# "sh /usr/share/sprig/banner" shows it again)
+sprig_startup=1
+. /usr/share/sprig/banner
 # Last: the whole screen scrolls from now on. While the boot logo is up, the console keeps its rows out of
 # scrolling (until a console switch), so text later written there would stay put. (Cursor saved and restored.)
 printf '\0337\033[r\0338'

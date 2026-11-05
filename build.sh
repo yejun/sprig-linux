@@ -78,6 +78,12 @@ fi
 rm -rf root && mkdir -p root/{bin,sbin,usr/bin,usr/sbin,usr/share/udhcpc,proc,sys,dev,tmp,root,var/run,var/log,var/tmp,home,mnt}
 chmod 1777 root/var/tmp   # (temporary files too big for /tmp's 2 MB in memory: lynx's downloads, /etc/profile)
 cp -r "$HERE/rootfs/." root/
+# the release in /etc/os-release (the card at the end of startup shows it): $VERSION as package.sh has it, or the
+# tag, or what git describe makes of a commit after one
+V=${VERSION:-$(git -C "$HERE" describe --tags --always 2>/dev/null || echo unknown)}
+V=${V#v}
+printf 'NAME="Sprig Linux"\nID=sprig\nVERSION="%s"\nVERSION_ID=%s\nPRETTY_NAME="Sprig Linux %s"\nHOME_URL="%s"\n' \
+  "$V" "$V" "$V" https://github.com/yejun/sprig-linux > root/etc/os-release
 [[ -d "$WORK/extras" ]] && cp -a "$WORK/extras/." root/   # from extras.sh, if run
 cp busybox-$BBVER/busybox root/bin/ && ln -s busybox root/bin/sh && ln -s ../bin/busybox root/sbin/init
 mkdir -p root/etc/rc.d && ln -s ../../etc/init.d/sshd root/usr/sbin/sshd   # (services: sshd start / enable)

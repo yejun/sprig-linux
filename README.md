@@ -9,6 +9,8 @@ Tab5), and boots in tiny386 elsewhere too.
   lynx (a web browser, HTTPS with OpenSSL and checked certificates, compressed pages)
 - network over the PC's NE2000 card (DHCP at boot)
 - a text console, or a graphics console (800 x 600, 256 colours) with the boot logo
+- at the end of startup, a card with the version, memory, swap, disk, network and a few commands, beside a sprig
+  (`sh /usr/share/sprig/banner` shows it again)
 
 The kernel is booted directly by tiny386's loader (linuxstart), without a BIOS. It needs a Pentium-class CPU (Linux
 no longer supports the 486): `gen = 5` in tiny386's settings.
