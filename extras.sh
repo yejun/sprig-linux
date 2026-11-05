@@ -45,7 +45,7 @@ fetch https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL/open
 fetch https://zlib.net/zlib-$ZLIB.tar.gz zlib-$ZLIB bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
 fetch https://github.com/google/brotli/archive/refs/tags/v$BROTLI.tar.gz brotli-$BROTLI \
   98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f
-fetch https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2 lynx$LYNX \
+fetch "https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2|https://invisible-mirror.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2" lynx$LYNX \
   174b7f2866a60f3247ba75f5c7dbb10b124aede4a1359312de15f3bfebd2050f "$HERE"/lynx-patches/*.patch
 fetch_file https://curl.se/ca/cacert-$CACERT.pem 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
 # The certificates as OpenSSL's certificate directory (its OPENSSLDIR, below, /etc/ssl, + /certs): a file each, named

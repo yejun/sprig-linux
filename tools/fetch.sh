@@ -1,6 +1,8 @@
 # What build.sh and extras.sh share (sourced): downloads, patches, zig, release checks.
 #
-# fetch <url> <the directory it unpacks to> <sha256> [patches...]: the archive is kept in $WORK/dl and checked against
+# fetch <url>[|<another url>...] <the directory it unpacks to> <sha256> [patches...]: the addresses tried in turn (a
+# mirror for a server that turns some clients away: invisible-island.net answers curl with 403); the archive is kept
+# in $WORK/dl and checked against
 # its SHA-256 (a copy there already that doesn't match is downloaded again), and unpacked into the current directory. A tree is patched only right
 # after unpacking, with the whole series, every patch applying cleanly or the build stops; a stamp in it records the
 # series, and a tree whose series differs (or that has none: an interrupted run, an older build) is unpacked anew.
@@ -9,14 +11,18 @@
 # archive of the pinned commit, pinned like the others.
 mkdir -p "$WORK/dl"
 fetch() {
-  local url=$1 dir=$2 sum=$3 f=$WORK/dl/${1##*/} stamp=none p
+  local urls=$1 url=${1%%|*} dir=$2 sum=$3 f stamp=none p u list
+  f=$WORK/dl/${url##*/}
   [[ $url == */archive/* ]] && f=$WORK/dl/$dir.tar.gz   # (GitHub's archive of a commit: <commit>.tar.gz)
   shift 3
   if [[ -f $f ]] && ! echo "$sum  $f" | sha256sum -c --quiet - >/dev/null 2>&1; then
     echo "$f isn't the archive expected (SHA-256): downloading it again" >&2   # (an old or damaged copy)
     rm -f "$f"
   fi
-  [[ -f $f ]] || { curl -sSfL -o "$f.part" "$url" && mv "$f.part" "$f"; }
+  if [[ ! -f $f ]]; then
+    IFS='|' read -ra list <<< "$urls"
+    for u in "${list[@]}"; do curl -sSfL -o "$f.part" "$u" && mv "$f.part" "$f" && break; done
+  fi
   echo "$sum  $f" | sha256sum -c --quiet - || { echo "$f is not the archive expected (SHA-256)" >&2; exit 1; }
   (($#)) && stamp=$(cat "$@" | sha256sum | cut -d' ' -f1)
   if [[ "${RELEASE:-}" == 1 || ! -d $dir || "$(cat "$dir/.sprig-patches" 2>/dev/null)" != "$stamp" ]]; then
