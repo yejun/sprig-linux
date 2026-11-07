@@ -42,7 +42,7 @@ fetch https://micropython.org/resources/source/micropython-$MPY.tar.xz micropyth
   d925a7c664e79a2bdf3dfcb285ba5e2237041cc35a0bd4ee573b6c5711efeca0
 fetch https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL/openssl-$OPENSSL.tar.gz openssl-$OPENSSL \
   a2157c2830efdec3788939b00c9b0638306d3f0bbb76dc4832ee503bb397df98
-fetch https://zlib.net/zlib-$ZLIB.tar.gz zlib-$ZLIB bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
+fetch "https://github.com/madler/zlib/releases/download/v$ZLIB/zlib-$ZLIB.tar.gz|https://zlib.net/fossils/zlib-$ZLIB.tar.gz" zlib-$ZLIB bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
 fetch https://github.com/google/brotli/archive/refs/tags/v$BROTLI.tar.gz brotli-$BROTLI \
   98d35d11a78dc453aebb7d10c3748f3f73ff78c8267c0dc697b8631f67bf7e8f
 fetch "https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2|https://invisible-mirror.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2" lynx$LYNX \
