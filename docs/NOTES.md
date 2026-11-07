@@ -6,7 +6,7 @@ instructions, memory, or both.
 
 ## Kernel
 
-`make ARCH=i386 tinyconfig` plus `tiny386.config` (and `fb.config` for the graphics console):
+`make ARCH=i386 tinyconfig` plus `tiny386.config` and `dma.config` (and `fb.config` for the graphics console):
 
 - **Pentium-class CPU** (`M586TSC`): Linux 7.3 no longer supports the 486.
 - **Loaded at 1 MB**: linuxstart jumps to 1 MB, so it gets the bzImage (in a raw vmlinux.bin of a 7.x kernel the
@@ -23,6 +23,14 @@ instructions, memory, or both.
 - **ext4 with a journal**, for ext2 too: the emulated PC is often reset or switched off while it runs, and ext2
   without fsck got corrupted.
 - The kernel command line has `pata_legacy.probe_mask=1`: looking for disks at the other five legacy ports took 3 s.
+- **The disk by bus-master DMA** (`dma.config`: PCI, `ata_generic`): on a firmware whose emulated PIIX3 IDE
+  controller has its bus master, a read or write moves its sectors to or from memory in one go, with one interrupt,
+  instead of libata's PIO a sector at a time: on the Tab5, disk reads 3.7 -> ~4.1 MB/s and writes ~18% faster (the
+  rest of a read is the kernel's own page-cache work). The firmware turns the controller on; on one that doesn't,
+  `ata_generic` leaves it and `pata_legacy` takes the disk with PIO as before (the built-in command line has
+  `ata_generic.all_generic_ide=1 pata_legacy.all=1`), so the kernel works with old and new firmware alike.
+  `ata_piix` was tried first: it needs the PIIX's decode bits, which no BIOS sets here, and holds the ports even when
+  it finds the channels disabled.
 
 ## Root file system
 

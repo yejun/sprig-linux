@@ -31,8 +31,9 @@ fetch "https://busybox.net/downloads/busybox-$BBVER.tar.bz2" busybox-$BBVER \
 fetch https://github.com/hchunhui/tiny386/archive/$TINY386.tar.gz tiny386-$TINY386 \
   43c890663beffb39de2d6ee3950e03e9ce92c5f74ae503f17656728532236532
 
-# kernel: tinyconfig + what tiny386 has (tiny386.config); with FB=1 also a variant with a graphics console and the boot
-# logo (fb.config: bzImage-fb + tiny386-linux-fb.ini), built first in the same tree
+# kernel: tinyconfig + what tiny386 has (tiny386.config) + PCI IDE with bus-master DMA (dma.config; PIO on a firmware
+# without it); with FB=1 also a variant with a graphics console and the boot logo (fb.config: bzImage-fb +
+# tiny386-linux-fb.ini), built first in the same tree
 kernel() {   # kernel <output name> <config fragments...>
   local name=$1; shift
   make -C linux-$KVER ARCH=i386 tinyconfig >/dev/null
@@ -41,8 +42,8 @@ kernel() {   # kernel <output name> <config fragments...>
   make -C linux-$KVER ARCH=i386 -j"$(nproc)" bzImage >/dev/null
   cp linux-$KVER/arch/x86/boot/bzImage "$OUT/$name"
 }
-[[ "${FB:-}" == 1 ]] && kernel bzImage-fb "$HERE/tiny386.config" "$HERE/fb.config"
-kernel bzImage "$HERE/tiny386.config"
+[[ "${FB:-}" == 1 ]] && kernel bzImage-fb "$HERE/tiny386.config" "$HERE/fb.config" "$HERE/dma.config"
+kernel bzImage "$HERE/tiny386.config" "$HERE/dma.config"
 
 # tiny386's loader (linuxstart). The graphics variant asks it for a VBE mode with vga=0x303 (800x600 with 256
 # colours; tiny386 since 003c266): it sets the mode and describes the linear frame buffer to the kernel for vesafb;
