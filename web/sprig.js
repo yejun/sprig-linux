@@ -112,6 +112,7 @@ async function start() {
 
 function run() {
   cover.hidden = true;
+  document.body.classList.add('running');
   screen.focus();
   const fb = ex.wasm_getfb(pc), img = new ImageData(W, H), px = new Uint32Array(img.data.buffer);
   const src = new Uint32Array(ex.memory.buffer, fb, W * H), ctx = screen.getContext('2d');
@@ -123,6 +124,7 @@ function run() {
     tick.port2.postMessage(0);
   };
   tick.port2.postMessage(0);
+  addEventListener('beforeunload', e => { if (on) e.preventDefault(); });   // (a stray Ctrl+W, a swipe back)
   (function draw() {   // tiny386's screen is BGRX; the canvas wants RGBA
     for (let i = 0; i < px.length; i++) {
       const v = src[i];
@@ -136,6 +138,7 @@ function run() {
 
 function off() {   // poweroff: tiny386 has switched the PC off
   if (document.pointerLockElement) document.exitPointerLock();
+  document.body.classList.remove('running');
   cover.hidden = false;
   cover.classList.remove('loading');
   cover.classList.add('off');
@@ -175,20 +178,116 @@ const CODES = {
   ArrowUp: 0xe048, PageUp: 0xe049, ArrowLeft: 0xe04b, ArrowRight: 0xe04d, End: 0xe04f, ArrowDown: 0xe050,
   PageDown: 0xe051, Insert: 0xe052, Delete: 0xe053, MetaLeft: 0xe05b, MetaRight: 0xe05c, ContextMenu: 0xe05d,
 };
+// characters (from a phone's keyboard) as US-layout keys: [scan code, with Shift]
+const CHARS = { ' ': ['Space'], '\n': ['Enter'], '\t': ['Tab'], '-': ['Minus'], '=': ['Equal'], '[': ['BracketLeft'],
+  ']': ['BracketRight'], '\\': ['Backslash'], ';': ['Semicolon'], "'": ['Quote'], '`': ['Backquote'], ',': ['Comma'],
+  '.': ['Period'], '/': ['Slash'], '_': ['Minus', 1], '+': ['Equal', 1], '{': ['BracketLeft', 1],
+  '}': ['BracketRight', 1], '|': ['Backslash', 1], ':': ['Semicolon', 1], '"': ['Quote', 1], '~': ['Backquote', 1],
+  '<': ['Comma', 1], '>': ['Period', 1], '?': ['Slash', 1], '‘': ['Quote'], '’': ['Quote'],
+  '“': ['Quote', 1], '”': ['Quote', 1] };
+[...'1234567890'].forEach((d, i) => { CHARS[d] = ['Digit' + d]; CHARS['!@#$%^&*()'[i]] = ['Digit' + d, 1]; });
+for (const c of 'abcdefghijklmnopqrstuvwxyz') { CHARS[c] = ['Key' + c.toUpperCase()]; CHARS[c.toUpperCase()] = ['Key' + c.toUpperCase(), 1]; }
+
 function input() {
+  const send = (down, c) => ex.wasm_send_kbd(pc, down, c);
+
+  // Ctrl and Alt of the on-screen keys: latched for the next key, from anywhere
+  const latch = { ctrl: false, alt: false }, latchBtn = {};
+  const setLatch = (m, v) => { latch[m] = v; latchBtn[m]?.classList.toggle('on', v); };
+  const modsDown = () => { if (latch.ctrl) send(1, 0x1d); if (latch.alt) send(1, 0x38); };
+  const modsUp = () => {
+    if (latch.alt) send(0, 0x38); if (latch.ctrl) send(0, 0x1d);
+    setLatch('ctrl', false); setLatch('alt', false);
+  };
+  const tap = (c, shift) => {   // a key pressed and let go, with the latched Ctrl/Alt
+    modsDown(); if (shift) send(1, 0x2a);
+    send(1, c); send(0, c);
+    if (shift) send(0, 0x2a); modsUp();
+  };
+
+  // a real keyboard (the screen focused): make and break as they come, with the latched Ctrl/Alt around a key
+  const MODS = new Set([0x1d, 0x2a, 0x36, 0x38, 0xe01d, 0xe038]);
+  let around = false;
   const key = down => e => {
     const c = CODES[e.code];
     if (c === undefined) return;
     e.preventDefault();
-    ex.wasm_send_kbd(pc, down, c);
+    if (down && !MODS.has(c) && (latch.ctrl || latch.alt) && !around) { modsDown(); around = true; }
+    send(down, c);
+    if (!down && around && !MODS.has(c)) { modsUp(); around = false; }
   };
   screen.addEventListener('keydown', key(1));
   screen.addEventListener('keyup', key(0));
-  screen.addEventListener('blur', () => {   // (no key left held down)
-    for (const c of [0x1d, 0x2a, 0x36, 0x38, 0xe01d, 0xe038]) ex.wasm_send_kbd(pc, 0, c);
+  screen.addEventListener('blur', () => { for (const c of MODS) send(0, c); });   // (no key left held down)
+
+  // a phone's keyboard: a hidden text box, its edits turned into keys (typed characters, Backspace for what was
+  // deleted, also mid-word as a keyboard corrects or composes); it keeps a few characters before the caret so that
+  // Backspace on an "empty" box still arrives
+  const box = $('typebox'), PAD = '    ';
+  let prev = PAD, composing = false;
+  const reset = () => { box.value = PAD; prev = PAD; box.setSelectionRange(PAD.length, PAD.length); };
+  box.addEventListener('compositionstart', () => { composing = true; });
+  box.addEventListener('compositionend', () => { composing = false; setTimeout(sync, 0); });
+  function sync() {
+    const v = box.value;
+    let i = 0;
+    while (i < prev.length && i < v.length && prev[i] === v[i]) i++;
+    for (let k = prev.length; k > i; k--) tap(CODES.Backspace);
+    for (const ch of v.slice(i)) { const m = CHARS[ch]; if (m) tap(CODES[m[0]], m[1]); }
+    prev = v;
+    if (!composing && (v.length < PAD.length || v.length > 40 || /\n/.test(v))) reset();
+  }
+  box.addEventListener('input', sync);
+  box.addEventListener('keydown', e => {   // keys a phone's keyboard does report (or a tablet's real keyboard)
+    if (e.isComposing || e.keyCode === 229) return;
+    const c = CODES[e.code];
+    if (c === undefined || (CHARS[e.key] && !latch.ctrl && !latch.alt && !e.ctrlKey && !e.altKey)) return;
+    e.preventDefault();
+    if (MODS.has(c)) return;
+    if (e.ctrlKey) setLatch('ctrl', true);
+    if (e.altKey) setLatch('alt', true);
+    tap(c, e.shiftKey);
   });
+  reset();
+  const typeOn = () => {
+    reset(); box.focus({ preventScroll: true });
+    $('machine').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+
+  // the on-screen keys: pressed on touch (the focus stays where it is, so a phone's keyboard stays open); a held
+  // key repeats like a real one
+  for (const b of document.querySelectorAll('#keys button')) {
+    const k = b.dataset.key;
+    if (k === 'type') { b.addEventListener('pointerdown', e => { e.preventDefault(); typeOn(); }); continue; }
+    if (k === 'ctrl' || k === 'alt') {
+      latchBtn[k] = b;
+      b.addEventListener('pointerdown', e => { e.preventDefault(); setLatch(k, !latch[k]); });
+      continue;
+    }
+    const c = CODES[k];
+    let timer = null;
+    const stop = () => { if (timer === null) return; clearTimeout(timer); timer = null; send(0, c); modsUp(); b.classList.remove('down'); };
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      b.setPointerCapture(e.pointerId);
+      b.classList.add('down');
+      modsDown(); send(1, c);
+      const again = () => { send(1, c); timer = setTimeout(again, 60); };
+      timer = setTimeout(again, 450);
+    });
+    b.addEventListener('pointerup', stop);
+    b.addEventListener('pointercancel', stop);
+  }
+  $('keys-toggle').addEventListener('click', () => document.body.classList.toggle('keys-on'));
+
+  // the mouse: on a computer, pointer lock once the screen is clicked; on a touch screen a tap brings up the
+  // keyboard instead (a relative mouse can't follow a finger)
+  let touched = 0;
+  screen.addEventListener('touchstart', () => { touched = Date.now(); }, { passive: true });
+  screen.addEventListener('touchend', e => { e.preventDefault(); typeOn(); });
   const locked = () => document.pointerLockElement === screen;
   screen.addEventListener('mousedown', e => {
+    if (Date.now() - touched < 1000) return;
     screen.focus();
     if (!locked()) { screen.requestPointerLock(); return; }
     ex.wasm_send_mouse(pc, 0, 0, 0, e.buttons);
@@ -205,6 +304,7 @@ function input() {
 }
 
 startBtn.onclick = start;
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('keys-on');   // (a touch screen: keys shown)
 $('size').textContent = `${(Object.values(SPRIG.sizes).reduce((a, b) => a + b, 0) / 1e6).toFixed(0)} MB`;
 document.querySelectorAll('.version').forEach(e => { e.textContent = SPRIG.version; });
 })();
