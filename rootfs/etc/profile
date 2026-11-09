@@ -5,6 +5,8 @@ alias ls='ls --color=auto'
 # lynx's temporary files on the disk: a download is kept there whole before it is saved, and /tmp (2 MB in memory)
 # cut bigger ones short
 export LYNX_TEMP_SPACE=/var/tmp
+# mc (Midnight Commander) that leaves the shell in the directory it was showing when it quits
+alias mc='. /usr/libexec/mc/mc-wrapper.sh'
 # An SSH login: Sprig's card, as at the end of startup, as wide as the terminal (stty). In a subshell, so that its
 # variables stay out of this shell; stty and the card's df make it ~0.3 s.
 if [ -n "$SSH_CONNECTION" ] && [ -t 1 ]; then

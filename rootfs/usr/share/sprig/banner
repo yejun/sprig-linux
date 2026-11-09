@@ -109,9 +109,10 @@ if [ "$cols" -ge 100 ]; then
   at 63; printf '%s' "$swap"; at 72; printf '%s\n' "$sbar  $W$su ${w}of $st_ MB"
   printf '%s' "    $art2"; at 25; printf '%s' "$disk"; at 34; printf '%s' "$dbar  $W$du_ ${w}of $dt_ MB"
   at 63; printf '%s' "${C}Network"; at 72; printf '%s\n' "$net"
-  printf '%s\n' "    $art3"
-  printf '%s' "    $art4"; at 25; printf '%s' "${C}Try"; at 34
+  printf '%s' "    $art3"; at 25; printf '%s' "${C}Try"; at 34
   printf '%s\n' "${Y}lynx ${D}web   ${Y}nano ${D}editor   ${Y}htop ${D}processes   ${Y}ssh ${D}remote login"
+  printf '%s' "    $art4"; at 34
+  printf '%s\n' "${Y}mc ${D}files   ${Y}ncdu ${D}disk use   ${Y}sqlite3 ${D}database   ${Y}zork1 ${D}a game"
   printf '%s' "    $art5"; at 25; printf '%s' "${C}Off"; at 34
   printf '%s\n' "${w}type ${Y}poweroff${w} before switching off"
   printf '%s\n' "    $art6"

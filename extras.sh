@@ -3,15 +3,19 @@
 # into $WORK/extras, which build.sh copies into the root file system: dropbear (SSH server and client, scp), gpm (the
 # console mouse), nano, htop, Lua, tcc (a C compiler, with musl's headers and libraries), MicroPython, lynx (a web
 # browser, with OpenSSL for HTTPS and Mozilla's CA certificates as curl publishes them, zlib and brotli's decoder for
-# compressed pages).
-# Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm), python3, perl (OpenSSL) and openssl
-# (the certificates' hashes) on this computer.
+# compressed pages), Midnight Commander (a file manager, with GLib, PCRE2 and libffi), ncdu (disk use), sqlite3, frotz
+# (a player for text adventures) with Zork I, II and III (MIT-licensed since 2025).
+# Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm), python3, perl (OpenSSL), openssl
+# (the certificates' hashes) and ninja (GLib, with meson from its pinned archive) on this computer.
 # Run before build.sh:  ./extras.sh   (RELEASE=1 as for build.sh: a clean checkout, every source unpacked anew)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$HERE/work}
 DROPBEAR=2026.94 GPM=1.20.7 NCURSES=6.6 NANO=9.3 HTOP=3.5.3 LUA=5.5.1 MUSL=1.2.6 TCC=e23dabed154a8495f3ac1ff3cc9d04fa1c207893
 MPY=1.29.0 OPENSSL=3.6.5 LYNX=2.9.3 CACERT=2026-10-20 ZLIB=1.3.2 BROTLI=1.2.1
+MESON=1.12.1 PCRE2=10.49 FFI=3.8.0 GLIB=2.88.4 MC=4.8.33 NCDU=1.22 SQLITE=3540100 FROTZ=2.55
+ZORK1=97b7b3d68c075dd9af7da499c3e9690ada3471fd ZORK2=3da9661098809788a99cef00f00c865c6c204f96
+ZORK3=3ec9ed412b5f3cafe65d83c727d07db1fe4a86a8
 mkdir -p "$WORK/pkgs"
 cd "$WORK"
 Z=$HERE/tools/zcc
@@ -48,12 +52,41 @@ fetch https://github.com/google/brotli/archive/refs/tags/v$BROTLI.tar.gz brotli-
 fetch "https://invisible-island.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2|https://invisible-mirror.net/archives/lynx/tarballs/lynx$LYNX.tar.bz2" lynx$LYNX \
   174b7f2866a60f3247ba75f5c7dbb10b124aede4a1359312de15f3bfebd2050f "$HERE"/lynx-patches/*.patch
 fetch_file https://curl.se/ca/cacert-$CACERT.pem 796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe
+CACERT_PEM=$F
+fetch https://github.com/mesonbuild/meson/releases/download/$MESON/meson-$MESON.tar.gz meson-$MESON \
+  ab0a6ca09f8ef70c564c8241fb5a23957886a0b53fb58412b5e07eaf07dba743
+fetch https://github.com/PCRE2Project/pcre2/releases/download/pcre2-$PCRE2/pcre2-$PCRE2.tar.bz2 pcre2-$PCRE2 \
+  53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384
+fetch https://github.com/libffi/libffi/releases/download/v$FFI/libffi-$FFI.tar.gz libffi-$FFI \
+  7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4
+fetch https://download.gnome.org/sources/glib/${GLIB%.*}/glib-$GLIB.tar.xz glib-$GLIB \
+  25fd169f3b2f91fe2391ad297883ce0fcf30c69fc789ffd1c9672d1332b1c5a8
+fetch https://ftp.osuosl.org/pub/midnightcommander/mc-$MC.tar.xz mc-$MC \
+  cae149d42f844e5185d8c81d7db3913a8fa214c65f852200a9d896b468af164c
+fetch https://dev.yorhel.nl/download/ncdu-$NCDU.tar.gz ncdu-$NCDU \
+  0ad6c096dc04d5120581104760c01b8f4e97d4191d6c9ef79654fa3c691a176b
+fetch https://sqlite.org/2026/sqlite-autoconf-$SQLITE.tar.gz sqlite-autoconf-$SQLITE \
+  926ef8d3eab93fbf6e06011901273eec076b25594a4e1cdadd50c987f4f6d64e
+fetch https://ifarchive.org/if-archive/infocom/interpreters/frotz/frotz-$FROTZ.tar.gz frotz-$FROTZ \
+  e3d6912ff94bca724759fe59aa222c1ee23aa4d35ffa15a0b40f72f97887d871 "$HERE"/frotz-patches/*.patch
+# Zork I, II and III as Infocom compiled them (Z-machine version 3), and their licence (MIT, Microsoft, 2025)
+declare -A ZSUM=([1]=37084966477dff679282de42974b2077156b1bd68fad92a65d4ea94d8eb64d79
+  [2]=3ae7d5558943e9721f3e4b273c8a7faec1a03a604e1ae4ee1cde472c21cb24ac
+  [3]=b637a242865d059890184164ce8dec28554cc80901dcbf26c740b2d1ed0d4eb8)
+ZLIC=98a96c38494df4963951e32b81ec4effebe4c8a812ab8d9e7d185d59e86fe2fc
+for n in 1 2 3; do
+  c=ZORK$n; c=${!c}
+  fetch_file "https://raw.githubusercontent.com/historicalsource/zork$n/$c/COMPILED/zork$n.z3" "${ZSUM[$n]}"
+  install -D -m644 "$F" "$EX/usr/share/games/zork/zork$n.z3"
+  fetch_file "https://raw.githubusercontent.com/historicalsource/zork$n/$c/LICENSE" $ZLIC zork$n-LICENSE.txt
+  install -D -m644 "$F" "$EX/usr/share/licenses/zork$n/LICENSE"
+done
 # The certificates as OpenSSL's certificate directory (its OPENSSLDIR, below, /etc/ssl, + /certs): a file each, named
 # by its subject's hash, so that a connection reads just the one it needs (OpenSSL took ~6 s to load the whole
 # bundle, at every lynx start on the Tab5); the bundle beside them as ca-certificates.crt, for programs that take one
 # file (OpenSSL reads only the hashes' names there)
-mkdir -p "$EX/etc/ssl/certs" && install -m644 "$F" "$EX/etc/ssl/certs/ca-certificates.crt"
-python3 - "$F" "$EX/etc/ssl/certs" <<'PY'
+mkdir -p "$EX/etc/ssl/certs" && install -m644 "$CACERT_PEM" "$EX/etc/ssl/certs/ca-certificates.crt"
+python3 - "$CACERT_PEM" "$EX/etc/ssl/certs" <<'PY'
 import subprocess, sys
 pem, out = open(sys.argv[1]).read(), sys.argv[2]
 begin, end = "-----BEGIN CERTIFICATE-----", "-----END CERTIFICATE-----"
@@ -205,6 +238,92 @@ CNF
      sed 's|^STARTFILE:.*|STARTFILE:file://localhost/usr/share/sprig/start.html|'; } > "$EX/etc/lynx.cfg" &&
  chmod 644 "$EX/etc/lynx.cfg")
 
+# PCRE2 and libffi (static) for GLib; libtool's .la files left out (they name /usr/lib, this computer's for libtool)
+(cd pcre2-$PCRE2 && ./configure -q "${HOST[@]}" CC="$Z" AR="zig ar" RANLIB="zig ranlib" --prefix=/usr --disable-shared \
+   --enable-static CFLAGS=-O2 >/dev/null 2>&1 && make -s -j"$(nproc)" libpcre2-8.la >/dev/null 2>&1 &&
+ make -s install-libLTLIBRARIES install-nodist_includeHEADERS install-pkgconfigDATA DESTDIR="$SYS" \
+   lib_LTLIBRARIES=libpcre2-8.la pkgconfig_DATA=libpcre2-8.pc >/dev/null 2>&1)
+(cd libffi-$FFI && ./configure -q "${HOST[@]}" CC="$Z" AR="zig ar" RANLIB="zig ranlib" --prefix=/usr --disable-shared \
+   --enable-static --disable-docs --disable-multi-os-directory CFLAGS=-O2 >/dev/null 2>&1 &&
+ make -s -j"$(nproc)" >/dev/null 2>&1 && make -s install DESTDIR="$SYS" >/dev/null 2>&1)
+rm -f "$SYS"/usr/lib/*.la
+printf '%s\n' prefix=/usr 'libdir=${prefix}/lib' 'includedir=${prefix}/include' Name:\ zlib Description:\ zlib \
+  "Version: $ZLIB" 'Libs: -L${libdir} -lz' 'Cflags: -I${includedir}' > "$SYS/usr/lib/pkgconfig/zlib.pc"
+
+# GLib (static) for Midnight Commander: meson from its archive, for the guest by this cross file (what meson can't run
+# to find out: musl's printf is C99 and Unix 98)
+cat > "$WORK/meson-cross.ini" <<CROSS
+[binaries]
+c = '$Z'
+ar = ['zig', 'ar']
+strip = 'strip'
+pkg-config = 'pkg-config'
+
+[built-in options]
+c_args = ['-O2']
+
+[properties]
+needs_exe_wrapper = true
+pkg_config_libdir = '$SYS/usr/lib/pkgconfig'
+sys_root = '$SYS'
+have_c99_vsnprintf = true
+have_c99_snprintf = true
+have_unix98_printf = true
+growing_stack = false
+va_val_copy = true
+
+[host_machine]
+system = 'linux'
+cpu_family = 'x86'
+cpu = 'i586'
+endian = 'little'
+CROSS
+(cd glib-$GLIB && rm -rf b && python3 ../meson-$MESON/meson.py setup b --cross-file "$WORK/meson-cross.ini" --prefix=/usr \
+   -Ddefault_library=static -Dtests=false -Dintrospection=disabled -Dlibmount=disabled -Dselinux=disabled -Dxattr=false \
+   -Dnls=disabled -Dman-pages=disabled -Ddocumentation=false -Dsysprof=disabled -Dlibelf=disabled -Dglib_debug=disabled \
+   -Dinstalled_tests=false --wrap-mode=nofallback >/dev/null && ninja -C b >/dev/null &&
+ DESTDIR="$SYS" ninja -C b install >/dev/null)
+
+# Midnight Commander (mc, mcedit, mcview, mcdiff), on ncurses with the console mouse; no SFTP (libssh2), no X. Its
+# check wants <ncurses/ncurses.h> under the path given and a library named ncurses: $SYS/mc has both (a link to the
+# headers, a linker script for ncursesw and gpm). Its manuals and other languages' help left out
+mkdir -p "$SYS/mc/inc" && ln -sfn "$SYS/usr/include" "$SYS/mc/inc/ncurses" &&
+  echo "INPUT(-lncursesw -lgpm)" > "$SYS/mc/libncurses.a"
+(cd mc-$MC && PKG_CONFIG_LIBDIR="$SYS/usr/lib/pkgconfig" PKG_CONFIG_SYSROOT_DIR="$SYS" ./configure -q "${HOST[@]}" \
+   CC="$Z" AR="zig ar" RANLIB="zig ranlib" --prefix=/usr --sysconfdir=/etc --libexecdir=/usr/libexec --disable-nls \
+   --with-screen=ncurses --with-ncurses-includes="$SYS/mc/inc" --with-ncurses-libs="$SYS/mc" --with-gpm-mouse \
+   --enable-vfs-sftp=no --disable-vfs-undelfs --without-x --disable-doxygen-doc --with-search-engine=glib \
+   GLIB_LIBS="-lglib-2.0 -lpcre2-8" CPPFLAGS="-I$SYS/usr/include" LDFLAGS="-L$SYS/usr/lib -static" LIBS=-lgpm \
+   CFLAGS=-O2 >/dev/null 2>&1 && make -s clean >/dev/null 2>&1 && make -s -j"$(nproc)" >/dev/null 2>&1 &&
+ make -s install DESTDIR="$EX" >/dev/null 2>&1)
+rm -rf "$EX/usr/share/man" && find "$EX/usr/share/mc/help" -name 'mc.hlp.*' -delete
+
+# ncdu (disk use), on ncurses (pkg-config pointed at an empty directory: its configure wants one, the flags are given)
+mkdir -p "$SYS/nopc"
+(cd ncdu-$NCDU && PKG_CONFIG_LIBDIR="$SYS/nopc" ./configure -q "${HOST[@]}" CC="$Z" --prefix=/usr \
+   CPPFLAGS="-I$SYS/usr/include" LDFLAGS="-L$SYS/usr/lib -static" \
+   NCURSES_CFLAGS="-I$SYS/usr/include" NCURSES_LIBS="-lncursesw -lgpm" CFLAGS=-O2 >/dev/null 2>&1 &&
+ make -s clean >/dev/null 2>&1 && make -s -j"$(nproc)" >/dev/null 2>&1 && install -D -m755 -t "$EX/usr/bin" ncdu)
+# its scan screen every 2 s, not every 0.1 s: a redraw of the console takes longer than that, and it redrew after
+# nearly every file (/usr scanned in over a minute; 1.4 s without the screen, ~5 s like this)
+printf '%s\n' "# ncdu's settings (Sprig Linux): the scan screen redrawn every 2 s (a redraw takes ~0.1 s on the console)" \
+  --slow-ui-updates > "$EX/etc/ncdu.conf"
+
+# sqlite3, its shell and library in one program (single-threaded, no extensions; no line editing: no readline)
+(cd sqlite-autoconf-$SQLITE && ZCC_LINK_O2=1 "$Z" -O2 -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION \
+   -DSQLITE_DEFAULT_MEMSTATUS=0 -static -o sqlite3 shell.c sqlite3.c -lm && install -D -m755 -t "$EX/usr/bin" sqlite3)
+
+# frotz (Z-machine stories) on ncurses, without sound, as root too (frotz-patches/0001); zork1, zork2 and zork3 start
+# the games
+(cd frotz-$FROTZ && make -s clean >/dev/null 2>&1 && make -s nosound CC="$Z" PKGCONF_BIN=false PKG_CONFIG_BIN=false \
+   "CURSES_CFLAGS=-I$SYS/usr/include -D_DEFAULT_SOURCE -DNCURSES_WIDECHAR=1" \
+   "CURSES_LDFLAGS=-L$SYS/usr/lib -lncursesw -lgpm" LDFLAGS=-static AR="zig ar" RANLIB="zig ranlib" OPTS=-O2 \
+   >/dev/null 2>&1 && install -D -m755 -t "$EX/usr/bin" frotz)
+for n in 1 2 3; do
+  printf '#!/bin/sh\n# Zork %s (Infocom; MIT licence, /usr/share/licenses/zork%s): frotz, its saves where you are\nexec frotz "$@" /usr/share/games/zork/zork%s.z3\n' \
+    "$(printf '%*s' $n '' | tr ' ' I)" $n $n > "$EX/usr/bin/zork$n" && chmod 755 "$EX/usr/bin/zork$n"
+done
+
 # their licences (build.sh adds the kernel's, BusyBox's, the C library's and the loader's)
 L=$EX/usr/share/licenses
 install -D -m644 -t "$L/dropbear" dropbear-$DROPBEAR/LICENSE
@@ -221,6 +340,13 @@ install -D -m644 -t "$L/openssl" openssl-$OPENSSL/LICENSE.txt
 install -D -m644 -t "$L/lynx" lynx$LYNX/COPYING lynx$LYNX/COPYHEADER
 install -D -m644 -t "$L/zlib" zlib-$ZLIB/LICENSE
 install -D -m644 -t "$L/brotli" brotli-$BROTLI/LICENSE
+install -D -m644 -t "$L/pcre2" pcre2-$PCRE2/LICENCE.md
+install -D -m644 -t "$L/libffi" libffi-$FFI/LICENSE
+install -D -m644 -t "$L/glib" glib-$GLIB/COPYING
+install -D -m644 -t "$L/mc" mc-$MC/COPYING
+install -D -m644 -t "$L/ncdu" ncdu-$NCDU/COPYING
+install -D -m644 -t "$L/frotz" frotz-$FROTZ/COPYING
+mkdir -p "$L/sqlite" && echo "SQLite is in the public domain: https://sqlite.org/copyright.html" > "$L/sqlite/README"
 install -D -m644 "$MPL" "$L/ca-certificates/MPL-2.0.txt"
 printf '%s\n' "/etc/ssl/certs: Mozilla's CA certificates (certdata.txt, MPL-2.0), as curl publishes them:" \
   "https://curl.se/ca/cacert-$CACERT.pem" > "$L/ca-certificates/README"

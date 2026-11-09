@@ -21,7 +21,7 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q gcc-multilib flex bison bc libelf-dev fakeroot e2fsprogs autoconf automake \
-            libtool ncurses-bin
+            libtool ncurses-bin ninja-build pkg-config
       - name: Downloads (kept between runs)
         uses: actions/cache@v6
         with:

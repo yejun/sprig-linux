@@ -3,7 +3,8 @@
 This repository's own files (the build scripts, the configuration, the root file system's files in `rootfs/` and the
 documentation) are under the MIT licence in [LICENSE](LICENSE). The patches in `patches/` and `busybox-patches/`
 change the Linux kernel and BusyBox and are offered under those programs' licence, GPL-2.0; those in
-`lynx-patches/` change lynx, under its licence, GPL-2.0.
+`lynx-patches/` change lynx, under its licence, GPL-2.0; `frotz-patches/` change Frotz, under its licence,
+GPL-2.0-or-later.
 
 Sprig Linux's images are built from the software below; each keeps its own licence. The full licence texts are in
 the image (`/usr/share/licenses`) and, for a release, in `sprig-linux-<version>-licenses.tar.gz` beside it. The
@@ -20,7 +21,7 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [musl](https://musl.libc.org) | 1.2.6 | MIT | the image: tcc's C library (`/usr/include`, `/usr/lib`) |
 | [Dropbear](https://matt.ucc.asn.au/dropbear/dropbear.html) | 2026.94 | MIT, with parts under other permissive licences (see its LICENSE) | the image: SSH server and client |
 | [gpm](https://www.nico.schottelius.org/software/gpm/) | 1.20.7 | GPL-2.0-or-later | the image: the console mouse |
-| [ncurses](https://invisible-island.net/ncurses/) | 6.6 | MIT-style (X11) | the image: in nano and htop, terminal descriptions |
+| [ncurses](https://invisible-island.net/ncurses/) | 6.6 | MIT-style (X11) | the image: in the full-screen programs (nano, htop, lynx, mc, ncdu, frotz), terminal descriptions |
 | [GNU nano](https://www.nano-editor.org) | 9.3 | GPL-3.0-or-later | the image |
 | [htop](https://htop.dev) | 3.5.3 | GPL-2.0-or-later | the image |
 | [Lua](https://www.lua.org) | 5.5.1 | MIT | the image |
@@ -30,4 +31,13 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [OpenSSL](https://openssl-library.org) | 3.6.5 | Apache-2.0 | the image: linked into lynx |
 | [zlib](https://zlib.net) | 1.3.2 | Zlib | the image: linked into lynx |
 | [Brotli](https://github.com/google/brotli) (its decoder) | 1.2.1 | MIT | the image: linked into lynx |
+| [PCRE2](https://github.com/PCRE2Project/pcre2) | 10.49 | BSD-3-Clause (with its exception for binaries) | the image: linked into mc (through GLib) |
+| [libffi](https://sourceware.org/libffi/) | 3.8.0 | MIT | build only (GLib's GObject, not linked into mc) |
+| [GLib](https://gitlab.gnome.org/GNOME/glib) | 2.88.4 | LGPL-2.1-or-later | the image: linked into mc |
+| [GNU Midnight Commander](https://midnight-commander.org) | 4.8.33 | GPL-3.0-or-later | the image: `mc`, `mcedit`, `mcview`, `mcdiff` |
+| [ncdu](https://dev.yorhel.nl/ncdu) | 1.22 | MIT | the image |
+| [SQLite](https://sqlite.org) | 3.54.1 | public domain | the image: `sqlite3` |
+| [Frotz](https://gitlab.com/DavidGriffith/frotz) | 2.55, with frotz-patches/ | GPL-2.0-or-later | the image: the Z-machine player |
+| Zork I, II and III ([historicalsource](https://github.com/historicalsource/zork1)) | the compiled stories at 97b7b3d, 3da9661, 3ec9ed4 | MIT (Microsoft, 2025) | the image: `/usr/share/games/zork` |
+| [Meson](https://mesonbuild.com) | 1.12.1 | Apache-2.0 | build only (GLib's build) |
 | Mozilla's CA certificates, as [curl](https://curl.se/docs/caextract.html) publishes them | 2026-10-20 | MPL-2.0 | the image: `/etc/ssl/certs` |

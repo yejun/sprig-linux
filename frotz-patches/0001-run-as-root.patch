@@ -1,0 +1,19 @@
+frotz refuses to run as root ("I won't run as root!"); on Sprig Linux everything runs as root (a single-user
+system with no other accounts), so the check is left out.
+
+--- a/src/curses/ux_init.c
++++ b/src/curses/ux_init.c
+@@ -224,12 +224,7 @@
+ 
+ 	zoptarg = NULL;
+ 
+-#if !defined(WIN32) && !defined(__HAIKU__)
+-	if ((getuid() == 0) || (geteuid() == 0)) {
+-		printf("I won't run as root!\n");
+-		os_quit(EXIT_FAILURE);
+-	}
+-#endif
++/* Sprig Linux: everything runs as root there (a single-user system), so frotz does too */
+ 
+ #ifdef WIN32
+ #define HOMEDIR "USERPROFILE"
