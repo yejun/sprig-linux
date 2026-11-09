@@ -1,0 +1,33 @@
+A click (a tap on the Tab5) on an item of a menu chooses it, as Enter on OK would; dialog only moved the
+highlight there, and a second click on OK was needed. menu (rootfs/usr/bin/menu) starts the program tapped.
+
+--- a/menubox.c
++++ b/menubox.c
+@@ -548,7 +548,7 @@
+     dlg_trace_win(dialog);
+ 
+     while (result == DLG_EXIT_UNKNOWN) {
+-	int key, found;
++	int key, found, clicked = FALSE;
+ 
+ 	if (button < 0)		/* --visit-items */
+ 	    wmove(dialog,
+@@ -574,6 +574,7 @@
+ 		i = RowToItem(key);
+ 		if (i < max_choice) {
+ 		    found = TRUE;
++		    clicked = TRUE;
+ 		} else {
+ 		    beep();
+ 		    continue;
+@@ -685,6 +686,10 @@
+ 		    wrefresh(dialog);
+ 		}
+ 	    }
++	    if (clicked && !is_inputmenu) {	/* a click on an item: it, as with Enter on OK */
++		button = 0;
++		ungetch('\n');
++	    }
+ 	    continue;		/* wait for another key press */
+ 	}
+ 

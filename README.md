@@ -9,6 +9,8 @@ Tab5), and boots in tiny386 elsewhere too.
   lynx (a web browser, HTTPS with OpenSSL and checked certificates, compressed pages)
 - Midnight Commander (`mc`, a two-pane file manager, with its editor and viewer), ncdu (disk use), sqlite3, and frotz
   with Zork I, II and III (`zork1`, `zork2`, `zork3`; Infocom's games, open source under the MIT licence since 2025)
+- `menu`: the programs in a list (dialog), in colour, with the mouse (tap one on the Tab5), a hint at the bottom for
+  the highlighted one (what it is, how to leave it); the list comes back when a program ends
 - network over the PC's NE2000 card (DHCP at boot)
 - a text console, or a graphics console (800 x 600, 256 colours) with the boot logo
 - at the end of startup and at SSH logins, a card with the version, memory, swap, disk, network and a few commands,

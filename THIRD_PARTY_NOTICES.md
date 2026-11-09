@@ -4,7 +4,7 @@ This repository's own files (the build scripts, the configuration, the root file
 documentation) are under the MIT licence in [LICENSE](LICENSE). The patches in `patches/` and `busybox-patches/`
 change the Linux kernel and BusyBox and are offered under those programs' licence, GPL-2.0; those in
 `lynx-patches/` change lynx, under its licence, GPL-2.0; `frotz-patches/` change Frotz, under its licence,
-GPL-2.0-or-later.
+GPL-2.0-or-later; `dialog-patches/` change dialog, under its licence, LGPL-2.1.
 
 Sprig Linux's images are built from the software below; each keeps its own licence. The full licence texts are in
 the image (`/usr/share/licenses`) and, for a release, in `sprig-linux-<version>-licenses.tar.gz` beside it. The
@@ -39,5 +39,6 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [SQLite](https://sqlite.org) | 3.54.1 | public domain | the image: `sqlite3` |
 | [Frotz](https://gitlab.com/DavidGriffith/frotz) | 2.55, with frotz-patches/ | GPL-2.0-or-later | the image: the Z-machine player |
 | Zork I, II and III ([historicalsource](https://github.com/historicalsource/zork1)) | the compiled stories at 97b7b3d, 3da9661, 3ec9ed4 | MIT (Microsoft, 2025) | the image: `/usr/share/games/zork` |
+| [dialog](https://invisible-island.net/dialog/) | 1.3-20260721, with dialog-patches/ | LGPL-2.1 | the image: `menu`'s boxes |
 | [Meson](https://mesonbuild.com) | 1.12.1 | Apache-2.0 | build only (GLib's build) |
 | Mozilla's CA certificates, as [curl](https://curl.se/docs/caextract.html) publishes them | 2026-10-20 | MPL-2.0 | the image: `/etc/ssl/certs` |

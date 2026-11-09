@@ -109,10 +109,9 @@ if [ "$cols" -ge 100 ]; then
   at 63; printf '%s' "$swap"; at 72; printf '%s\n' "$sbar  $W$su ${w}of $st_ MB"
   printf '%s' "    $art2"; at 25; printf '%s' "$disk"; at 34; printf '%s' "$dbar  $W$du_ ${w}of $dt_ MB"
   at 63; printf '%s' "${C}Network"; at 72; printf '%s\n' "$net"
-  printf '%s' "    $art3"; at 25; printf '%s' "${C}Try"; at 34
-  printf '%s\n' "${Y}lynx ${D}web   ${Y}nano ${D}editor   ${Y}htop ${D}processes   ${Y}ssh ${D}remote login"
-  printf '%s' "    $art4"; at 34
-  printf '%s\n' "${Y}mc ${D}files   ${Y}ncdu ${D}disk use   ${Y}sqlite3 ${D}database   ${Y}zork1 ${D}a game"
+  printf '%s\n' "    $art3"
+  printf '%s' "    $art4"; at 25; printf '%s' "${C}Try"; at 34
+  printf '%s\n' "${Y}menu ${D}all programs   ${Y}lynx ${D}web   ${Y}nano ${D}editor   ${Y}ssh ${D}remote login"
   printf '%s' "    $art5"; at 25; printf '%s' "${C}Off"; at 34
   printf '%s\n' "${w}type ${Y}poweroff${w} before switching off"
   printf '%s\n' "    $art6"
@@ -124,7 +123,7 @@ else   # 80 columns: one column of facts
   printf '%s' "    $art3"; at 25; printf '%s' "$swap"; at 34; printf '%s\n' "$sbar  $W$su ${w}of $st_ MB"
   printf '%s' "    $art4"; at 25; printf '%s' "$disk"; at 34; printf '%s\n' "$dbar  $W$du_ ${w}of $dt_ MB"
   printf '%s' "    $art5"; at 25; printf '%s' "${C}Network"; at 34; printf '%s\n' "$net"
-  printf '%s' "    $art6"; at 25; printf '%s' "${C}Try"; at 34; printf '%s\n' "${Y}lynx nano htop ssh ${D}· ${Y}poweroff ${D}to switch off"
+  printf '%s' "    $art6"; at 25; printf '%s' "${C}Try"; at 34; printf '%s\n' "${Y}menu lynx nano ssh ${D}· ${Y}poweroff ${D}to switch off"
 fi
 rule "$cols"
 printf '%s%s%s\n\n' "$D" "$v" "$N"
