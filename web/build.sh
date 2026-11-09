@@ -26,7 +26,7 @@ pids=()
 for s in "${SRCS[@]}"; do
   zig cc --target=wasm32-freestanding -O3 -nostdlib -fno-builtin -ffunction-sections -fdata-sections -I "$T/libc" \
     -DI386_ENABLE_FPU -DI386_ENABLE_MMX -DI386_ENABLE_SSE -DI386_ENABLE_SSE2 -DI386_ENABLE_SSE3 -DI386_ENABLE_SSSE3 \
-    -w -c "$T/$s" -o "$WORK/wasm-build/$(basename "$s" .c).o" & pids+=($!)
+    -ffile-prefix-map="$WORK/"= -w -c "$T/$s" -o "$WORK/wasm-build/$(basename "$s" .c).o" & pids+=($!)
 done
 for p in "${pids[@]}"; do wait "$p"; done   # (each, so that a failed compile stops the build)
 rm -rf "$SITE" && mkdir -p "$SITE"
