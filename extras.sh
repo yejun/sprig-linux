@@ -5,9 +5,9 @@
 # browser, with OpenSSL for HTTPS and Mozilla's CA certificates as curl publishes them, zlib and brotli's decoder for
 # compressed pages), Midnight Commander (a file manager, with GLib, PCRE2 and libffi), ncdu (disk use), sqlite3, frotz
 # (a player for text adventures) with Zork I, II and III (MIT-licensed since 2025), dialog (for menu, the programs'
-# list).
+# list), Bywater BASIC and cmatrix.
 # Needs what build.sh needs, plus tic (ncurses), autoconf, automake, libtool (gpm), python3, perl (OpenSSL), openssl
-# (the certificates' hashes) and ninja (GLib, with meson from its pinned archive) on this computer.
+# (the certificates' hashes), ninja (GLib, with meson from its pinned archive) and unzip (BASIC) on this computer.
 # Run before build.sh:  ./extras.sh   (RELEASE=1 as for build.sh: a clean checkout, every source unpacked anew)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -15,6 +15,7 @@ WORK=${WORK:-$HERE/work}
 DROPBEAR=2026.94 GPM=1.20.7 NCURSES=6.6 NANO=9.3 HTOP=3.5.3 LUA=5.5.1 MUSL=1.2.6 TCC=e23dabed154a8495f3ac1ff3cc9d04fa1c207893
 MPY=1.29.0 OPENSSL=3.6.5 LYNX=2.9.3 CACERT=2026-10-20 ZLIB=1.3.2 BROTLI=1.2.1
 MESON=1.12.1 PCRE2=10.49 FFI=3.8.0 GLIB=2.88.4 MC=4.8.33 NCDU=1.22 SQLITE=3540100 FROTZ=2.55 DIALOG=1.3-20260721
+BWBASIC=3.40 CMATRIX=5c082c64a1296859a11bee60c8c086655953a416
 ZORK1=97b7b3d68c075dd9af7da499c3e9690ada3471fd ZORK2=3da9661098809788a99cef00f00c865c6c204f96
 ZORK3=3ec9ed412b5f3cafe65d83c727d07db1fe4a86a8
 mkdir -p "$WORK/pkgs"
@@ -72,6 +73,12 @@ fetch "https://invisible-island.net/archives/dialog/dialog-$DIALOG.tgz|https://i
   dialog-$DIALOG 62bdf59057d4f760a1cc2217827f07887b4a3eebf694c25eacd4803d2171cdc6 "$HERE"/dialog-patches/*.patch
 fetch https://ifarchive.org/if-archive/infocom/interpreters/frotz/frotz-$FROTZ.tar.gz frotz-$FROTZ \
   e3d6912ff94bca724759fe59aa222c1ee23aa4d35ffa15a0b40f72f97887d871 "$HERE"/frotz-patches/*.patch
+fetch https://github.com/abishekvashok/cmatrix/archive/$CMATRIX.tar.gz cmatrix-$CMATRIX \
+  722fb8e8d4879adf3185f720d5a927134e64c9c7346f603910d235385359f8c3
+# Bywater BASIC: a zip (unpacked here, as fetch unpacks tar archives)
+fetch_file "https://downloads.sourceforge.net/project/bwbasic/bwbasic/version%20$BWBASIC/bwbasic-$BWBASIC.zip" \
+  b5689422a09d05aae1143497d22579e55c4e121ee2b806e738b483b8c000a20f
+rm -rf bwbasic-$BWBASIC && mkdir bwbasic-$BWBASIC && unzip -q "$F" -d bwbasic-$BWBASIC
 # Zork I, II and III as Infocom compiled them (Z-machine version 3), and their licence (MIT, Microsoft, 2025)
 declare -A ZSUM=([1]=37084966477dff679282de42974b2077156b1bd68fad92a65d4ea94d8eb64d79
   [2]=3ae7d5558943e9721f3e4b273c8a7faec1a03a604e1ae4ee1cde472c21cb24ac
@@ -327,6 +334,22 @@ for n in 1 2 3; do
     "$(printf '%*s' $n '' | tr ' ' I)" $n $n > "$EX/usr/bin/zork$n" && chmod 755 "$EX/usr/bin/zork$n"
 done
 
+# Bywater BASIC (bwbasic: line numbers, LIST, RUN, SAVE, LOAD), C89 as its makefiles build it (musl's putenv
+# differs from the one it declares otherwise); basic starts it with a line on how to leave
+(cd bwbasic-$BWBASIC && ZCC_LINK_O2=1 "$Z" -O2 -ansi -DHAVE_UNIX -static -o bwbasic bwbasic.c bwb_cmd.c bwb_cnd.c \
+   bwb_dio.c bwb_exp.c bwb_fnc.c bwb_inp.c bwb_int.c bwb_prn.c bwb_stc.c bwb_str.c bwb_tbl.c bwb_var.c bwd_cmd.c \
+   bwd_fun.c bwx_tty.c -lm && install -D -m755 -t "$EX/usr/bin" bwbasic)
+printf '%s\n' '#!/bin/sh' '# Bywater BASIC, with a line on how to use and leave it' \
+  'echo "Bywater BASIC: numbered lines are kept; LIST, RUN, SAVE \"NAME\", LOAD \"NAME\". BYE leaves."' \
+  'exec bwbasic "$@"' > "$EX/usr/bin/basic" && chmod 755 "$EX/usr/bin/basic"
+
+# cmatrix (characters raining down the screen), one C file on ncurses: the configure results it needs as config.h,
+# its build date the commit's (it prints one)
+(cd cmatrix-$CMATRIX && printf '#define %s 1\n' HAVE_NCURSES_H HAVE_GETOPT_H HAVE_SYS_IOCTL_H HAVE_UNISTD_H \
+   HAVE_TERMIOS_H > config.h && echo '#define VERSION "2.0"' >> config.h &&
+ SOURCE_DATE_EPOCH=1702101146 "$Z" -O2 -Wno-date-time -DHAVE_CONFIG_H -DNCURSES_WIDECHAR=1 -I"$SYS/usr/include" \
+   -static -o cmatrix cmatrix.c -L"$SYS/usr/lib" -lncursesw -lgpm && install -D -m755 -t "$EX/usr/bin" cmatrix)
+
 # dialog (boxes and menus for scripts, with the mouse) for menu (rootfs/usr/bin/menu, its colours rootfs/etc/dialogrc);
 # a tap on a menu's item chooses it (dialog-patches/0001)
 (cd dialog-$DIALOG && ./configure -q "${HOST[@]}" CC="$Z" --prefix=/usr --with-ncursesw --enable-widec --disable-nls \
@@ -356,6 +379,8 @@ install -D -m644 -t "$L/mc" mc-$MC/COPYING
 install -D -m644 -t "$L/ncdu" ncdu-$NCDU/COPYING
 install -D -m644 -t "$L/frotz" frotz-$FROTZ/COPYING
 install -D -m644 -t "$L/dialog" dialog-$DIALOG/COPYING
+install -D -m644 -t "$L/bwbasic" bwbasic-$BWBASIC/COPYING
+install -D -m644 -t "$L/cmatrix" cmatrix-$CMATRIX/COPYING
 mkdir -p "$L/sqlite" && echo "SQLite is in the public domain: https://sqlite.org/copyright.html" > "$L/sqlite/README"
 install -D -m644 "$MPL" "$L/ca-certificates/MPL-2.0.txt"
 printf '%s\n' "/etc/ssl/certs: Mozilla's CA certificates (certdata.txt, MPL-2.0), as curl publishes them:" \

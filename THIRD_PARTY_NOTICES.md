@@ -40,5 +40,7 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 | [Frotz](https://gitlab.com/DavidGriffith/frotz) | 2.55, with frotz-patches/ | GPL-2.0-or-later | the image: the Z-machine player |
 | Zork I, II and III ([historicalsource](https://github.com/historicalsource/zork1)) | the compiled stories at 97b7b3d, 3da9661, 3ec9ed4 | MIT (Microsoft, 2025) | the image: `/usr/share/games/zork` |
 | [dialog](https://invisible-island.net/dialog/) | 1.3-20260721, with dialog-patches/ | LGPL-2.1 | the image: `menu`'s boxes |
+| [Bywater BASIC](https://sourceforge.net/projects/bwbasic/) | 3.40 | GPL-2.0 | the image: `bwbasic`, `basic` |
+| [CMatrix](https://github.com/abishekvashok/cmatrix) | 2.0 (5c082c6) | GPL-3.0-or-later | the image: `cmatrix` |
 | [Meson](https://mesonbuild.com) | 1.12.1 | Apache-2.0 | build only (GLib's build) |
 | Mozilla's CA certificates, as [curl](https://curl.se/docs/caextract.html) publishes them | 2026-10-20 | MPL-2.0 | the image: `/etc/ssl/certs` |

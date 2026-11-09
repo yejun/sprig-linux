@@ -10,6 +10,8 @@ mc|Files|Midnight Commander: two panels of files to copy, move, view and edit
 nano|Text editor|A simple text editor, with its commands listed along the bottom
 htop|Processes|The programs running, and how much of the CPU and memory each uses
 ncdu|Disk use|What fills the disk: folders sorted by size, to look into or delete
+basic|BASIC|Bywater BASIC: a classic BASIC with numbered lines, LIST, RUN, SAVE and LOAD
+cmatrix|Matrix rain|Green characters raining down the screen, for the look of it
 zork1|Zork I|The 1980 text adventure from Infocom: explore the Great Underground Empire
 zork2|Zork II|The sequel (1981): the Wizard of Frobozz, deeper underground
 zork3|Zork III|The end of the trilogy (1982): the Dungeon Master awaits
