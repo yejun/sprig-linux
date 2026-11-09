@@ -4,7 +4,7 @@ A small Linux distribution for PCs with little memory: a current kernel, BusyBox
 16 MB of RAM. It is made for the emulated PC of [Tab5 PC](https://github.com/yejun/tab5-pc) (tiny386 on the M5Stack
 Tab5), and boots in tiny386 elsewhere too.
 
-- Linux 7.3.1, BusyBox 1.37 (static, musl), on an ext4 root file system with a 16 MB swap file
+- Linux 7.3.3, BusyBox 1.37 (static, musl), on an ext4 root file system with a 16 MB swap file
 - nano, htop, Lua, tcc (a C compiler), MicroPython, an SSH server and client (dropbear), the console mouse (gpm),
   lynx (a web browser, HTTPS with OpenSSL and checked certificates, compressed pages)
 - Midnight Commander (`mc`, a two-pane file manager, with its editor and viewer), ncdu (disk use), sqlite3, and frotz
