@@ -6,6 +6,12 @@ change the Linux kernel and BusyBox and are offered under those programs' licenc
 `lynx-patches/` change lynx, under its licence, GPL-2.0; `frotz-patches/` change Frotz, under its licence,
 GPL-2.0-or-later; `dialog-patches/` change dialog, under its licence, LGPL-2.1.
 
+The web page (`web/`, on GitHub Pages) runs tiny386 compiled to WebAssembly: [tiny386](https://github.com/hchunhui/tiny386)
+003c266's emulator and its `wasm/` port with its small C library, BSD-3-Clause (parts from QEMU and TinyEMU MIT,
+nanoprintf 0BSD), its licence beside it as `tiny386-LICENSE.txt`; without its LGPL sound synthesis (fmopl). The
+page's key table comes from tiny386's web page, which took it from [v86](https://github.com/copy/v86) (BSD-2-Clause;
+the notice is in `web/sprig.js`). The page runs a release's own files, with that release's notices and sources.
+
 Sprig Linux's images are built from the software below; each keeps its own licence. The full licence texts are in
 the image (`/usr/share/licenses`) and, for a release, in `sprig-linux-<version>-licenses.tar.gz` beside it. The
 exact sources a release was built from are in its `sprig-linux-<version>-sources.tar` (this repository and every

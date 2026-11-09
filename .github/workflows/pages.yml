@@ -1,0 +1,51 @@
+# The web page that runs Sprig Linux in a browser (GitHub Pages), from a published release's files: whenever a
+# release is published, or by hand (Actions, "Run workflow", with a release's tag; empty = the latest release).
+name: Web page
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (empty = the latest release)
+        required: false
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: The release's files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          [ -n "$TAG" ] || TAG=$(gh release view --json tagName --jq .tagName)
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release download "$TAG" -D rel -p bzImage-fb -p linuxstart.bin -p root.img.gz -p SHA256SUMS
+          (cd rel && grep -E ' (bzImage-fb|linuxstart.bin|root.img.gz)$' SHA256SUMS | sha256sum -c)
+      - name: Downloads (kept between runs)
+        uses: actions/cache@v6
+        with:
+          path: work/dl
+          key: web-${{ hashFiles('tools/fetch.sh') }}
+      - name: The page
+        run: web/build.sh rel "$TAG"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

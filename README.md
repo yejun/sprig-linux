@@ -4,6 +4,9 @@ A small Linux distribution for PCs with little memory: a current kernel, BusyBox
 16 MB of RAM. It is made for the emulated PC of [Tab5 PC](https://github.com/yejun/tab5-pc) (tiny386 on the M5Stack
 Tab5), and boots in tiny386 elsewhere too.
 
+**Try it in your browser:** [yejun.github.io/sprig-linux](https://yejun.github.io/sprig-linux/) runs the latest
+release on tiny386 compiled to WebAssembly (nothing is saved, and there is no network beyond the page).
+
 - Linux 7.3.3, BusyBox 1.37 (static, musl), on an ext4 root file system with a 16 MB swap file
 - nano, htop, Lua, tcc (a C compiler), MicroPython, an SSH server and client (dropbear), the console mouse (gpm),
   lynx (a web browser, HTTPS with OpenSSL and checked certificates, compressed pages)
@@ -51,6 +54,13 @@ sources archive (this repository and every upstream archive: it builds again wit
 GitHub builds releases too (`.github/workflows/build.yml`): by hand from the Actions tab (`release/` as an artifact
 for 3 days), or for a version tag (`git tag v0.1 && git push origin v0.1`): a draft release to look over and
 publish.
+
+## Web page
+
+`web/` is the page that runs Sprig Linux in a browser: `web/build.sh <release files> <version>` compiles tiny386's
+WebAssembly port (its `wasm/` directory, with zig) and puts it beside the release's `bzImage-fb`, `linuxstart.bin`
+and `root.img.gz` in `web/site/`. The page downloads them, unpacks the root file system in memory and starts the PC.
+`.github/workflows/pages.yml` publishes it on GitHub Pages whenever a release is published.
 
 ## Install on the Tab5 PC
 

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sprig Linux: try it in your browser</title>
+<meta name="description" content="Sprig Linux, a small Linux for PCs with little memory, running in your browser on tiny386 (WebAssembly).">
+<link rel="icon" href="sprig.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #0b0f0c; --panel: #121914; --line: #223026; --text: #dbe6de; --muted: #8b9d90; --green: #5be36b;
+    --green-dim: #22a33e; --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); color: var(--text); }
+  body {
+    margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--green); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: .92em; color: var(--green); }
+  .wrap { max-width: 832px; margin: 0 auto; padding: 0 16px; }
+
+  header { display: flex; align-items: center; gap: 12px; padding: 22px 0 8px; }
+  header img { width: 22px; height: 28px; image-rendering: pixelated; }
+  header .name { font-weight: 650; font-size: 18px; letter-spacing: .01em; }
+  header .version {
+    font: 12px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 8px;
+  }
+  header nav { margin-left: auto; display: flex; gap: 18px; font-size: 15px; }
+
+  h1 { font-size: clamp(26px, 4.4vw, 36px); line-height: 1.2; margin: 34px 0 10px; font-weight: 700; letter-spacing: -.01em; }
+  .lede { color: var(--muted); margin: 0 0 26px; max-width: 640px; }
+
+  .machine {
+    position: relative; aspect-ratio: 4 / 3; width: 100%; background: #000; border: 1px solid var(--line);
+    border-radius: 10px; overflow: hidden; box-shadow: 0 18px 60px -30px #000;
+  }
+  canvas { display: block; width: 100%; height: 100%; outline: none; image-rendering: auto; cursor: pointer; }
+  body.grabbed canvas { cursor: none; }
+  .cover {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center;
+    background: radial-gradient(ellipse at 50% 40%, #16231a 0%, #060907 70%);
+  }
+  .cover[hidden] { display: none; }
+  .cover img { width: 66px; height: 84px; image-rendering: pixelated; margin-bottom: 6px; }
+  .cover button {
+    font: inherit; font-weight: 650; font-size: 17px; color: #06120a; background: var(--green); border: 0;
+    border-radius: 8px; padding: 12px 26px; cursor: pointer; transition: transform .08s, filter .15s;
+  }
+  .cover button:hover { filter: brightness(1.08); }
+  .cover button:active { transform: translateY(1px); }
+  .cover button:disabled { opacity: .5; cursor: default; }
+  .cover .status { color: var(--muted); font-size: 14px; min-height: 1.5em; margin: 0; }
+  .progress { width: min(320px, 70%); height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; display: none; }
+  .progress div { height: 100%; width: 0; background: var(--green); transition: width .15s; }
+  .cover.loading .progress { display: block; }
+  .cover.loading button { display: none; }
+  .cover.off button { display: inline-block; }
+
+  .hint { color: var(--muted); font-size: 14px; margin: 10px 2px 0; display: flex; flex-wrap: wrap; gap: 4px 18px; }
+  .hint kbd {
+    font: 12px var(--mono); color: var(--text); border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 4px; padding: 0 5px; background: var(--panel);
+  }
+
+  .cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 40px 0 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .card ul { list-style: none; margin: 0; padding: 0; }
+  .card li { margin: 0 0 7px; font-size: 15px; }
+  .card li:last-child { margin: 0; }
+  .card li code { margin-right: 4px; }
+  .card p { margin: 0 0 8px; font-size: 15px; }
+  .card p:last-child { margin: 0; }
+
+  footer { color: var(--muted); font-size: 13px; padding: 34px 0 40px; border-top: 1px solid var(--line); margin-top: 44px; }
+  footer p { margin: 0 0 6px; }
+
+  @media (max-width: 720px) {
+    .cols { grid-template-columns: 1fr; }
+    header nav { gap: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="sprig.svg" alt="">
+    <span class="name">Sprig Linux</span>
+    <span class="version"></span>
+    <nav>
+      <a href="https://github.com/yejun/sprig-linux">GitHub</a>
+      <a href="https://github.com/yejun/sprig-linux/releases/latest">Download</a>
+    </nav>
+  </header>
+
+  <h1>Try Sprig Linux in your browser</h1>
+  <p class="lede">A small Linux for PCs with little memory: Linux 7.3, BusyBox and a few dozen programs in 18 MB of
+    RAM. Here it runs on <a href="https://github.com/hchunhui/tiny386">tiny386</a>, a Pentium-class PC emulator
+    compiled to WebAssembly. Nothing to install.</p>
+
+  <div class="machine">
+    <canvas id="screen" width="800" height="600" tabindex="0" aria-label="Sprig Linux screen"></canvas>
+    <div class="cover" id="cover">
+      <img src="sprig.svg" alt="">
+      <button id="start">Start Sprig Linux</button>
+      <div class="progress"><div id="bar"></div></div>
+      <p class="status" id="status">Downloads <span id="size">14 MB</span>, then starts in a few seconds.</p>
+    </div>
+  </div>
+  <p class="hint">
+    <span>Type <code>menu</code> to see the programs</span>
+    <span>Click the screen to use the mouse; <kbd>Esc</kbd> gives it back</span>
+    <span><code>poweroff</code> switches off</span>
+  </p>
+
+  <div class="cols">
+    <section class="card">
+      <h2>Try</h2>
+      <ul>
+        <li><code>menu</code> all programs in a list</li>
+        <li><code>mc</code> Midnight Commander</li>
+        <li><code>zork1</code> the text adventure</li>
+        <li><code>basic</code> Bywater BASIC</li>
+        <li><code>cmatrix</code> digital rain</li>
+        <li><code>htop</code> what's running</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Good to know</h2>
+      <p>Nothing is saved. Reloading the page starts a fresh machine.</p>
+      <p>No internet here: a browser page can't open network connections for it.</p>
+      <p>Needs a keyboard, so a computer rather than a phone.</p>
+    </section>
+    <section class="card">
+      <h2>Run it for real</h2>
+      <p>Sprig Linux is made for <a href="https://github.com/yejun/tab5-pc">Tab5 PC</a>, the emulated PC on the
+        M5Stack Tab5, and boots in tiny386 elsewhere too.</p>
+      <p><a href="https://github.com/yejun/sprig-linux/releases/latest">Download the release</a> ·
+        <a href="https://github.com/yejun/sprig-linux#readme">README</a></p>
+    </section>
+  </div>
+
+  <footer>
+    <p>This page runs Sprig Linux <span class="version"></span>, the release's own kernel and disk image.
+      tiny386 © Chunhui He, BSD-3-Clause. Linux, BusyBox and the programs are under their own licences:
+      <a href="https://github.com/yejun/sprig-linux/blob/main/THIRD_PARTY_NOTICES.md">third-party notices</a>,
+      sources with each release.</p>
+  </footer>
+</div>
+<script src="sprig-files.js"></script>
+<script src="sprig.js"></script>
+</body>
+</html>

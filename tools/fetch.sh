@@ -53,6 +53,13 @@ use_zig() {
   export PATH="$WORK/zig-x86_64-linux-$ZIG:$PATH"
 }
 
+# tiny386 (github.com/hchunhui/tiny386), pinned: its loader (build.sh) and its WebAssembly build (web/build.sh)
+TINY386=003c2666dfe665e1068917af69a99afed1f0f70f
+fetch_tiny386() {
+  fetch https://github.com/hchunhui/tiny386/archive/$TINY386.tar.gz tiny386-$TINY386 \
+    43c890663beffb39de2d6ee3950e03e9ce92c5f74ae503f17656728532236532
+}
+
 # RELEASE=1: only from a clean git checkout (what is built is what the sources archive holds)
 release_check() {
   [[ "${RELEASE:-}" == 1 ]] || return 0

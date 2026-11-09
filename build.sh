@@ -10,7 +10,6 @@ WORK=${WORK:-$HERE/work}
 OUT=${OUT:-$HERE/out}
 KVER=7.3.3
 BBVER=1.37.0
-TINY386=003c2666dfe665e1068917af69a99afed1f0f70f   # tiny386 (github.com/hchunhui/tiny386): its loader
 export KBUILD_BUILD_USER=sprig KBUILD_BUILD_HOST=sprig-linux   # (in the kernel's version string, not this computer's)
 mkdir -p "$WORK"
 cd "$WORK"
@@ -28,8 +27,7 @@ fetch "https://cdn.kernel.org/pub/linux/kernel/v${KVER%%.*}.x/linux-$KVER.tar.xz
   79c66dde66cd96877fcde8f7d36aec946b1f423d2b97b5a7b1751b75c764f3d1 "$HERE"/patches/*.patch
 fetch "https://busybox.net/downloads/busybox-$BBVER.tar.bz2" busybox-$BBVER \
   3311dff32e746499f4df0d5df04d7eb396382d7e108bb9250e7b519b837043a4 "$HERE"/busybox-patches/*.patch
-fetch https://github.com/hchunhui/tiny386/archive/$TINY386.tar.gz tiny386-$TINY386 \
-  43c890663beffb39de2d6ee3950e03e9ce92c5f74ae503f17656728532236532
+fetch_tiny386   # (its loader)
 
 # kernel: tinyconfig + what tiny386 has (tiny386.config) + PCI IDE with bus-master DMA (dma.config; PIO on a firmware
 # without it); with FB=1 also a variant with a graphics console and the boot logo (fb.config: bzImage-fb +
