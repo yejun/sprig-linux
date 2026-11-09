@@ -296,7 +296,8 @@ CROSS
 
 # Midnight Commander (mc, mcedit, mcview, mcdiff), on ncurses with the console mouse; no SFTP (libssh2), no X. Its
 # check wants <ncurses/ncurses.h> under the path given and a library named ncurses: $SYS/mc has both (a link to the
-# headers, a linker script for ncursesw and gpm). Its manuals and other languages' help left out
+# headers, a linker script for ncursesw and gpm). `mc --configure-options` prints its configure line: the build's
+# paths in it are made relative. Its manuals and other languages' help left out
 mkdir -p "$SYS/mc/inc" && ln -sfn "$SYS/usr/include" "$SYS/mc/inc/ncurses" &&
   echo "INPUT(-lncursesw -lgpm)" > "$SYS/mc/libncurses.a"
 (cd mc-$MC && PKG_CONFIG_LIBDIR="$SYS/usr/lib/pkgconfig" PKG_CONFIG_SYSROOT_DIR="$SYS" ./configure -q "${HOST[@]}" \
@@ -304,7 +305,9 @@ mkdir -p "$SYS/mc/inc" && ln -sfn "$SYS/usr/include" "$SYS/mc/inc/ncurses" &&
    --with-screen=ncurses --with-ncurses-includes="$SYS/mc/inc" --with-ncurses-libs="$SYS/mc" --with-gpm-mouse \
    --enable-vfs-sftp=no --disable-vfs-undelfs --without-x --disable-doxygen-doc --with-search-engine=glib \
    GLIB_LIBS="-lglib-2.0 -lpcre2-8" CPPFLAGS="-I$SYS/usr/include" LDFLAGS="-L$SYS/usr/lib -static" LIBS=-lgpm \
-   CFLAGS=-O2 >/dev/null 2>&1 && make -s clean >/dev/null 2>&1 && make -s -j"$(nproc)" >/dev/null 2>&1 &&
+   CFLAGS=-O2 >/dev/null 2>&1 &&
+ sed -i "/MC_CONFIGURE_ARGS/{s|$WORK|work|g;s|$HERE|.|g}" config.h &&
+ make -s clean >/dev/null 2>&1 && make -s -j"$(nproc)" >/dev/null 2>&1 &&
  make -s install DESTDIR="$EX" >/dev/null 2>&1)
 rm -rf "$EX/usr/share/man" && find "$EX/usr/share/mc/help" -name 'mc.hlp.*' -delete
 
