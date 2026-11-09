@@ -1,25 +1,23 @@
 #!/bin/sh
 # menu: Sprig Linux's programs in a list (dialog, its colours in /etc/dialogrc). Tap one to start it (the console
 # mouse; dialog-patches/0001), or choose it with the arrow keys and Enter; when it ends, the list comes back. The
-# line at the bottom of the screen says what the highlighted one is for and how to leave it. Esc (or Prompt) leaves
-# the list.
+# line at the bottom of the screen describes the highlighted one. Exit (or Esc) leaves the list.
 #
-# One program a line: the command | what it is | the hint at the bottom. Commands not installed are left out;
-# "shell" and "off" are the list's own.
-LIST='lynx|Web browser|Arrows move between links, Enter follows one, g opens an address, q quits
-mc|Files (Midnight Commander)|Tab: the other panel; F5 copies, F6 moves, F8 deletes, F10 quits
-nano|Text editor|Ctrl+O saves, Ctrl+R opens a file, Ctrl+X quits
-htop|Processes and memory|Arrows choose a process, F9 ends it, q quits
-ncdu|Disk use|Enter opens a folder, Left goes back, d deletes, q quits
-zork1|Zork I: The Great Underground Empire|A text adventure: type what to do (open mailbox, go north); save, quit
-zork2|Zork II: The Wizard of Frobozz|A text adventure: type what to do; save, restore, quit
-zork3|Zork III: The Dungeon Master|A text adventure: type what to do; save, restore, quit
-sqlite3|SQLite database|SQL ends with ;  .help lists the commands, .quit leaves (a database in memory)
-lua|Lua|Type Lua to run it; Ctrl+D leaves
-micropython|MicroPython|Type Python to run it; Ctrl+D leaves
-ssh|Log in to another computer|Asks for user@host; exit there comes back here
-shell|The command prompt|Leaves this list; type menu to come back
-off|Power off|Linux shuts down, then the PC switches off'
+# One program a line: the command | its name in the list | its description at the bottom. Commands not installed
+# are left out; "off" is the list's own.
+LIST='lynx|Web browser|Browse the web as text: pages, links and forms, with HTTPS
+mc|Files|Midnight Commander: two panels of files to copy, move, view and edit
+nano|Text editor|A simple text editor, with its commands listed along the bottom
+htop|Processes|The programs running, and how much of the CPU and memory each uses
+ncdu|Disk use|What fills the disk: folders sorted by size, to look into or delete
+zork1|Zork I|The 1980 text adventure from Infocom: explore the Great Underground Empire
+zork2|Zork II|The sequel (1981): the Wizard of Frobozz, deeper underground
+zork3|Zork III|The end of the trilogy (1982): the Dungeon Master awaits
+sqlite3|SQLite|An SQL database shell: tables in a file, or in memory
+lua|Lua|The Lua language: type a line and it runs
+micropython|MicroPython|Python 3 for small computers: type a line and it runs
+ssh|Remote login|Log in to another computer over the network (asks for user@host)
+off|Power off|Shut Linux down; then the PC switches off'
 
 ver=$(. /etc/os-release 2>/dev/null && echo "$VERSION")
 
@@ -40,7 +38,7 @@ while :; do
   while IFS='|' read -r tag text hint; do
     case $tag in
       '') continue ;;
-      shell|off) ;;
+      off) ;;
       *) command -v "$tag" >/dev/null 2>&1 || continue ;;
     esac
     set -- "$@" "$tag" "$text" "$hint"
@@ -49,11 +47,10 @@ while :; do
 $LIST
 EOF
   choice=$(dialog --backtitle "Sprig Linux $ver" --title " Programs " --item-help --default-item "$choice" \
-    --hline "Tap one, or arrows and Enter.  Esc: the prompt" --ok-label Start --cancel-label Prompt \
-    --menu "Choose a program. When it ends, this list comes back." 0 0 "$n" "$@" 3>&1 1>&2 2>&3) || break
+    --ok-label Start --cancel-label Exit \
+    --menu "Tap one, or arrows and Enter. When it ends, this list comes back." 0 0 "$n" "$@" 3>&1 1>&2 2>&3) || break
   clear
   case $choice in
-    shell) break ;;
     off)
       dialog --title " Power off " --defaultno --yesno "Switch off now?\n\nLinux shuts down, then the PC switches off." 0 0 &&
         { clear; exec poweroff; } ;;
