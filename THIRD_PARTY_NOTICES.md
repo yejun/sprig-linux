@@ -7,9 +7,10 @@ change the Linux kernel and BusyBox and are offered under those programs' licenc
 GPL-2.0-or-later; `dialog-patches/` change dialog, under its licence, LGPL-2.1.
 
 The web page (`web/`, on GitHub Pages) runs tiny386 compiled to WebAssembly: [tiny386](https://github.com/hchunhui/tiny386)
-003c266's emulator and its `wasm/` port with its small C library, BSD-3-Clause (parts from QEMU and TinyEMU MIT,
-nanoprintf 0BSD), its licence beside it as `tiny386-LICENSE.txt`; without its LGPL sound synthesis (fmopl). The
-page's key table comes from tiny386's web page, which took it from [v86](https://github.com/copy/v86) (BSD-2-Clause;
+a6a7893's emulator (with its fast path, `fast/`) and its `wasm/` port with its small C library, BSD-3-Clause
+(parts from QEMU and TinyEMU MIT, nanoprintf 0BSD), its licence beside it as `tiny386-LICENSE.txt`; without its
+LGPL sound synthesis (fmopl). The page's key table comes from tiny386's web page, which took it from
+[v86](https://github.com/copy/v86) (BSD-2-Clause;
 the notice is in `web/sprig.js`). The page runs a release's own files, with that release's notices and sources.
 
 Sprig Linux's images are built from the software below; each keeps its own licence. The full licence texts are in
@@ -21,7 +22,7 @@ upstream archive, with their SHA-256 in `BUILDINFO`); `build.sh` and `extras.sh`
 |---|---|---|---|
 | [Linux](https://kernel.org) | 7.3.3, with patches/ | GPL-2.0 (with the syscall note) | `bzImage`, `bzImage-fb` |
 | [BusyBox](https://busybox.net) | 1.37.0, with busybox-patches/ | GPL-2.0 | the image: `/bin/busybox` |
-| linuxstart, from [tiny386](https://github.com/hchunhui/tiny386) | tiny386 003c266 | MIT (linuxstart: Fabrice Bellard); tiny386's build files BSD-3-Clause | `linuxstart.bin` |
+| linuxstart, from [tiny386](https://github.com/hchunhui/tiny386) | tiny386 a6a7893 | MIT (linuxstart: Fabrice Bellard); tiny386's build files BSD-3-Clause | `linuxstart.bin` |
 | musl, as bundled with [zig](https://ziglang.org) | zig 0.17.0 | MIT | linked into every program in the image |
 | compiler-rt, as bundled with zig | zig 0.17.0 | MIT | linked into every program in the image |
 | [musl](https://musl.libc.org) | 1.2.6 | MIT | the image: tcc's C library (`/usr/include`, `/usr/lib`) |
