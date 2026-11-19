@@ -1,0 +1,96 @@
+--- a/fast/fast_ops.h
++++ b/fast/fast_ops.h
+@@ -20,56 +20,71 @@
+ FL(op_0f): goto *FL(ops0f)[*pc++];
+ 
+ 	// ---- ALU: op Eb,Gb / Ev,Gv / Gb,Eb / Gv,Ev / AL,Ib / eAX,Iv
+-#define ALU6(L0, L1, L2, L3, L4, L5, OP, OPb, OPw, OPd, WR) \
++#define ALU6(L0, L1, L2, L3, L4, L5, AFTER, OPb, OPw, OPd, WR) \
+ L0: { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7; \
+ 	if (m >= 0xc0) { OPb(rm, r, fr8, fw8, fr8, fw8) } \
+ 	else { u8 *p; EA_PTR(p, m, 1, WR); OPb(p, r, fm8, fs8, fr8, fw8) } \
+-	NEXT; } \
++	AFTER; } \
+ L1: { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7; \
+ 	if (m >= 0xc0) { \
+ 		if (opsz16) { OPw(rm, r, lreg16, sreg16, lreg16, sreg16) } \
+ 		else { OPd(rm, r, lreg32, sreg32, lreg32, sreg32) } \
+ 	} else if (opsz16) { u8 *p; EA_PTR(p, m, 2, WR); OPw(p, r, fm16, fs16, lreg16, sreg16) } \
+ 	else { u8 *p; EA_PTR(p, m, 4, WR); OPd(p, r, fm32, fs32, lreg32, sreg32) } \
+-	NEXT; } \
++	AFTER; } \
+ L2: { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7; \
+ 	if (m >= 0xc0) { OPb(r, rm, fr8, fw8, fr8, fw8) } \
+ 	else { u8 *p; EA_PTR(p, m, 1, 0); OPb(r, p, fr8, fw8, fm8, fs8) } \
+-	NEXT; } \
++	AFTER; } \
+ L3: { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7; \
+ 	if (m >= 0xc0) { \
+ 		if (opsz16) { OPw(r, rm, lreg16, sreg16, lreg16, sreg16) } \
+ 		else { OPd(r, rm, lreg32, sreg32, lreg32, sreg32) } \
+ 	} else if (opsz16) { u8 *p; EA_PTR(p, m, 2, 0); OPw(r, p, lreg16, sreg16, fm16, fs16) } \
+ 	else { u8 *p; EA_PTR(p, m, 4, 0); OPd(r, p, lreg32, sreg32, fm32, fs32) } \
+-	NEXT; } \
+-L4: { u8 i = *pc++; int r = 0; OPb(r, i, fr8, fw8, limm, 0) NEXT; } \
++	AFTER; } \
++L4: { u8 i = *pc++; int r = 0; OPb(r, i, fr8, fw8, limm, 0) AFTER; } \
+ L5: { int r = 0; \
+ 	if (opsz16) { u16 i = *(u16a *) pc; pc += 2; OPw(r, i, lreg16, sreg16, limm, 0) } \
+ 	else { u32 i = *(u32a *) pc; pc += 4; OPd(r, i, lreg32, sreg32, limm, 0) } \
+-	NEXT; }
++	AFTER; }
++
++/* Skip the opcode-table dispatch for a short branch immediately after a compare.
++ * Keep NEXT's step and instruction-window boundaries between the two instructions. */
++#if defined(__wasm__) && !defined(FAST_VERIFY)
++#define CMP_NEXT do { \
++	if (steps > 0 && (uintptr_t) pc < (uintptr_t) win_end && (*pc & 0xf0) == 0x70 && pfx == PFX0) { \
++		--steps; \
++		ins = pc++; \
++		goto FL(op_jcc_b); \
++	} \
++	NEXT; \
++} while (0)
++#else
++#define CMP_NEXT NEXT
++#endif
+ 
+-	ALU6(FL(op_00), FL(op_01), FL(op_02), FL(op_03), FL(op_04), FL(op_05), ADD, ADDb, ADDw, ADDd, 1)
+-	ALU6(FL(op_08), FL(op_09), FL(op_0a), FL(op_0b), FL(op_0c), FL(op_0d), OR, ORb, ORw, ORd, 1)
+-	ALU6(FL(op_10), FL(op_11), FL(op_12), FL(op_13), FL(op_14), FL(op_15), ADC, ADCb, ADCw, ADCd, 1)
+-	ALU6(FL(op_18), FL(op_19), FL(op_1a), FL(op_1b), FL(op_1c), FL(op_1d), SBB, SBBb, SBBw, SBBd, 1)
+-	ALU6(FL(op_20), FL(op_21), FL(op_22), FL(op_23), FL(op_24), FL(op_25), AND, ANDb, ANDw, ANDd, 1)
+-	ALU6(FL(op_28), FL(op_29), FL(op_2a), FL(op_2b), FL(op_2c), FL(op_2d), SUB, SUBb, SUBw, SUBd, 1)
+-	ALU6(FL(op_30), FL(op_31), FL(op_32), FL(op_33), FL(op_34), FL(op_35), XOR, XORb, XORw, XORd, 1)
+-	ALU6(FL(op_38), FL(op_39), FL(op_3a), FL(op_3b), FL(op_3c), FL(op_3d), CMP, FCMPb, FCMPw, FCMPd, 0)
++	ALU6(FL(op_00), FL(op_01), FL(op_02), FL(op_03), FL(op_04), FL(op_05), NEXT, ADDb, ADDw, ADDd, 1)
++	ALU6(FL(op_08), FL(op_09), FL(op_0a), FL(op_0b), FL(op_0c), FL(op_0d), NEXT, ORb, ORw, ORd, 1)
++	ALU6(FL(op_10), FL(op_11), FL(op_12), FL(op_13), FL(op_14), FL(op_15), NEXT, ADCb, ADCw, ADCd, 1)
++	ALU6(FL(op_18), FL(op_19), FL(op_1a), FL(op_1b), FL(op_1c), FL(op_1d), NEXT, SBBb, SBBw, SBBd, 1)
++	ALU6(FL(op_20), FL(op_21), FL(op_22), FL(op_23), FL(op_24), FL(op_25), NEXT, ANDb, ANDw, ANDd, 1)
++	ALU6(FL(op_28), FL(op_29), FL(op_2a), FL(op_2b), FL(op_2c), FL(op_2d), NEXT, SUBb, SUBw, SUBd, 1)
++	ALU6(FL(op_30), FL(op_31), FL(op_32), FL(op_33), FL(op_34), FL(op_35), NEXT, XORb, XORw, XORd, 1)
++	ALU6(FL(op_38), FL(op_39), FL(op_3a), FL(op_3b), FL(op_3c), FL(op_3d), CMP_NEXT, FCMPb, FCMPw, FCMPd, 0)
+ 
+ 	// TEST, XCHG, MOV with modrm
+ FL(op_84): { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7;
+ 	if (m >= 0xc0) { FTESTb(rm, r, fr8, fw8, fr8, fw8) }
+ 	else { u8 *p; EA_PTR(p, m, 1, 0); FTESTb(p, r, fm8, fs8, fr8, fw8) }
+-	NEXT; }
++	CMP_NEXT; }
+ FL(op_85): { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7;
+ 	if (m >= 0xc0) {
+ 		if (opsz16) { FTESTw(rm, r, lreg16, sreg16, lreg16, sreg16) }
+ 		else { FTESTd(rm, r, lreg32, sreg32, lreg32, sreg32) }
+ 	} else if (opsz16) { u8 *p; EA_PTR(p, m, 2, 0); FTESTw(p, r, fm16, fs16, lreg16, sreg16) }
+ 	else { u8 *p; EA_PTR(p, m, 4, 0); FTESTd(p, r, fm32, fs32, lreg32, sreg32) }
+-	NEXT; }
++	CMP_NEXT; }
+ FL(op_86): { u8 m = *pc++; int r = (m >> 3) & 7, rm = m & 7;
+ 	if (m >= 0xc0) { XCHGb(rm, r, fr8, fw8, fr8, fw8) }
+ 	else { u8 *p; EA_PTR(p, m, 1, 1); XCHGb(p, r, fm8, fs8, fr8, fw8) }
+@@ -1086,3 +1101,4 @@
+ FL(op_shld): SHxD(SHLD)
+ FL(op_shrd): SHxD(SHRD)
+ 
++#undef CMP_NEXT

@@ -1,0 +1,24 @@
+--- a/fast/fast.h
++++ b/fast/fast.h
+@@ -545,8 +545,21 @@
+ #define FAST_CODE16 0
+ #define PFX0 0u
+ #define FAST_DTAB ops_32
++#if defined(__wasm__) && !defined(FAST_VERIFY)
++#undef DISPATCH
++#define DISPATCH do { \
++	ins = pc; pfx = PFX0; \
++	unsigned opcode = *pc++; \
++	if (opcode == 0x0f) goto *ops0f_32[*pc++]; \
++	goto *ops_32[opcode]; \
++} while (0)
++#endif
+ #define FAST_SFX _32
+ #include "fast_ops.h"
++#if defined(__wasm__) && !defined(FAST_VERIFY)
++#undef DISPATCH
++#define DISPATCH do { ins = pc; pfx = PFX0; FV_BEGIN; goto *FAST_DTAB[*pc++]; } while (0)
++#endif
+ #undef FAST_SFX
+ #undef opsz16
+ #undef adsz16

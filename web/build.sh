@@ -13,7 +13,7 @@ mkdir -p "$WORK"
 cd "$WORK"
 . "$HERE/tools/fetch.sh"
 use_zig
-fetch_tiny386
+fetch_tiny386 "$HERE"/web/patches/*.patch
 
 # tiny386's wasm/ port, as its Makefile builds it, compiled and linked by zig; without its sound chip's synthesis
 # (fmopl.c, LGPL: the page has no sound, and the AdLib card stays silent), so all of it is under
@@ -28,7 +28,7 @@ pids=()
 for s in "${SRCS[@]}"; do
   zig cc --target=wasm32-freestanding -O3 -nostdlib -fno-builtin -ffunction-sections -fdata-sections -I "$T/libc" \
     -DI386_ENABLE_FPU -DI386_ENABLE_MMX -DI386_ENABLE_SSE -DI386_ENABLE_SSE2 -DI386_ENABLE_SSE3 -DI386_ENABLE_SSSE3 \
-    -DUSE_FAST \
+    -DUSE_FAST -DFAST_PD -DFAST_PD_SIZE=8388608 \
     -ffile-prefix-map="$WORK/"= -w -c "$T/$s" -o "$WORK/wasm-build/$(basename "$s" .c).o" & pids+=($!)
 done
 for p in "${pids[@]}"; do wait "$p"; done   # (each, so that a failed compile stops the build)
