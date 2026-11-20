@@ -1,0 +1,87 @@
+--- a/fast/fast_pd_ops.h
++++ b/fast/fast_pd_ops.h
+@@ -10,6 +10,7 @@
+ #define PD_BEGIN do { } while (0)
+ #endif
+ #define PD_NEXTIP (bh + pu[1].ip)
++#define PD_REL32 (PD_NEXTIP + (sword) pu->i)
+ #define PD_NEXT do { FV_END(EIP_OF(PD_NEXTIP)); --steps; pu++; goto *pu->h; } while (0)
+ #define PD_JUMP(t) do { pc = (t); FV_END(EIP_OF(pc)); --steps; lk = &((struct pd_uop *) pu)->link; goto pd_go; } while (0)
+ #define PD_EA(o) uword o = (*pu->b + (*pu->x << pu->scl) + pu->d) & (0xffffffffu >> pu->ams)
+@@ -67,25 +68,49 @@
+ 	PD_NEXT; }
+ 
+ 	// ---- ALU, TEST
+-#define PD_ALU1(N, SFX, SZ, OP, LR, SR, LM, SM, T, WR) \
+-pd_##N##_rr##SFX: { PD_BEGIN; int _a = pu->rm, _b = pu->r; OP(_a, _b, LR, SR, LR, SR) PD_NEXT; } \
+-pd_##N##_rm##SFX: { PD_BEGIN; PD_MEM(p, SZ, 0); int _a = pu->r; OP(_a, p, LR, SR, LM, SM) PD_NEXT; } \
+-pd_##N##_mr##SFX: { PD_BEGIN; PD_MEM(p, SZ, WR); int _b = pu->r; OP(p, _b, LM, SM, LR, SR) PD_NEXT; } \
+-pd_##N##_ri##SFX: { PD_BEGIN; int _a = pu->rm; T _i = pu->i; OP(_a, _i, LR, SR, limm, 0) PD_NEXT; } \
+-pd_##N##_mi##SFX: { PD_BEGIN; PD_MEM(p, SZ, WR); T _i = pu->i; OP(p, _i, LM, SM, limm, 0) PD_NEXT; }
+-#define PD_ALU(N, OPb, OPw, OPd, WR) \
+-	PD_ALU1(N, b, 1, OPb, fr8, fw8, fm8, fs8, u8, WR) \
+-	PD_ALU1(N, w, 2, OPw, lreg16, sreg16, fm16, fs16, u16, WR) \
+-	PD_ALU1(N, d, 4, OPd, lreg32, sreg32, fm32, fs32, u32, WR)
+-	PD_ALU(add, ADDb, ADDw, ADDd, 1)
+-	PD_ALU(or, ORb, ORw, ORd, 1)
+-	PD_ALU(adc, ADCb, ADCw, ADCd, 1)
+-	PD_ALU(sbb, SBBb, SBBw, SBBd, 1)
+-	PD_ALU(and, ANDb, ANDw, ANDd, 1)
+-	PD_ALU(sub, SUBb, SUBw, SUBd, 1)
+-	PD_ALU(xor, XORb, XORw, XORd, 1)
+-	PD_ALU(cmp, FCMPb, FCMPw, FCMPd, 0)
+-	PD_ALU(test, FTESTb, FTESTw, FTESTd, 0)
++/* Consume a following JNE, JAE or JE while the CMP/TEST operands and result are still available.
++ * Read the live handler so a rewritten instruction or a block cut by pd_wrote follows normal dispatch.
++ * The first decrement accounts for the compare. PD_JUMP or PD_NEXT accounts for the branch. */
++#if defined(__wasm__) && !defined(FAST_VERIFY)
++#define PD_COMPARE_NEXT(carry) do { \
++	--steps; \
++	pu++; \
++	const void *next = pu->h; \
++	if (next == &&pd_j32_5) { /* JNE */ \
++		if (cpu->cc.dst != 0) PD_JUMP(PD_REL32); \
++	} else if (next == &&pd_j32_3) { /* JAE */ \
++		if (!(carry)) PD_JUMP(PD_REL32); \
++	} else if (next == &&pd_j32_4) { /* JE */ \
++		if (cpu->cc.dst == 0) PD_JUMP(PD_REL32); \
++	} else { \
++		goto *next; \
++	} \
++	PD_NEXT; \
++} while (0)
++#else
++#define PD_COMPARE_NEXT(carry) PD_NEXT
++#endif
++#define PD_ALU1(N, SFX, SZ, OP, LR, SR, LM, SM, T, WR, AFTER) \
++pd_##N##_rr##SFX: { PD_BEGIN; int _a = pu->rm, _b = pu->r; OP(_a, _b, LR, SR, LR, SR) AFTER; } \
++pd_##N##_rm##SFX: { PD_BEGIN; PD_MEM(p, SZ, 0); int _a = pu->r; OP(_a, p, LR, SR, LM, SM) AFTER; } \
++pd_##N##_mr##SFX: { PD_BEGIN; PD_MEM(p, SZ, WR); int _b = pu->r; OP(p, _b, LM, SM, LR, SR) AFTER; } \
++pd_##N##_ri##SFX: { PD_BEGIN; int _a = pu->rm; T _i = pu->i; OP(_a, _i, LR, SR, limm, 0) AFTER; } \
++pd_##N##_mi##SFX: { PD_BEGIN; PD_MEM(p, SZ, WR); T _i = pu->i; OP(p, _i, LM, SM, limm, 0) AFTER; }
++#define PD_ALU(N, OPb, OPw, OPd, WR, AFTER) \
++	PD_ALU1(N, b, 1, OPb, fr8, fw8, fm8, fs8, u8, WR, AFTER) \
++	PD_ALU1(N, w, 2, OPw, lreg16, sreg16, fm16, fs16, u16, WR, AFTER) \
++	PD_ALU1(N, d, 4, OPd, lreg32, sreg32, fm32, fs32, u32, WR, AFTER)
++	PD_ALU(add, ADDb, ADDw, ADDd, 1, PD_NEXT)
++	PD_ALU(or, ORb, ORw, ORd, 1, PD_NEXT)
++	PD_ALU(adc, ADCb, ADCw, ADCd, 1, PD_NEXT)
++	PD_ALU(sbb, SBBb, SBBw, SBBd, 1, PD_NEXT)
++	PD_ALU(and, ANDb, ANDw, ANDd, 1, PD_NEXT)
++	PD_ALU(sub, SUBb, SUBw, SUBd, 1, PD_NEXT)
++	PD_ALU(xor, XORb, XORw, XORd, 1, PD_NEXT)
++	PD_ALU(cmp, FCMPb, FCMPw, FCMPd, 0, PD_COMPARE_NEXT(cpu->cc.src1 < cpu->cc.src2))
++	PD_ALU(test, FTESTb, FTESTw, FTESTd, 0, PD_COMPARE_NEXT(0))
++
++#undef PD_COMPARE_NEXT
+ 
+ 	// ---- INC, DEC
+ #define PD_INCDEC1(N, SFX, SZ, OP, LR, SR, LM, SM) \
+@@ -278,7 +303,6 @@
+ 
+ 	// ---- jumps, calls, returns (16-bit code wraps at 64K)
+ #define PD_REL16 ((const u8 *) (ipd + ((EIP_OF(PD_NEXTIP) + pu->i) & 0xffff)))
+-#define PD_REL32 (PD_NEXTIP + (sword) pu->i)
+ #define PD_JCC(C) \
+ pd_j16_##C: { PD_BEGIN; if (fast_cond(cpu, 0x##C)) PD_JUMP(PD_REL16); PD_NEXT; } \
+ pd_j32_##C: { PD_BEGIN; if (fast_cond(cpu, 0x##C)) PD_JUMP(PD_REL32); PD_NEXT; }
