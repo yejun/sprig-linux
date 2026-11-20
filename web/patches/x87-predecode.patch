@@ -1,0 +1,118 @@
+--- a/fast/fast_pd.h
++++ b/fast/fast_pd.h
+@@ -69,6 +69,12 @@
+ #define PD_SH(X, n) PD_S3(X, n##_ri) PD_S3(X, n##_rc) PD_S3(X, n##_mi) PD_S3(X, n##_mc)
+ #define PD_J16(X, p) X(p##0) X(p##1) X(p##2) X(p##3) X(p##4) X(p##5) X(p##6) X(p##7) \
+ 	X(p##8) X(p##9) X(p##a) X(p##b) X(p##c) X(p##d) X(p##e) X(p##f)
++#if defined(I386_ENABLE_FPU) && defined(__wasm__) && !defined(FAST_VERIFY) && !defined(USE_FLOAT80)
++#define PD_X87_ENABLED
++#define PD_X87(X) X(x87_reg) X(x87_mem)
++#else
++#define PD_X87(X)
++#endif
+ #define PD_LIST(X) \
+ 	X(end) X(leave) X(classic) X(nop) \
+ 	PD_F5(X, mov) \
+@@ -95,7 +101,7 @@
+ 	X(cbw) X(cwde) X(cwd) X(cdq) \
+ 	PD_J16(X, j16_) PD_J16(X, j32_) X(jmp16) X(jmp32) X(call16) X(call32) \
+ 	X(ret16) X(ret32) X(reti16) X(reti32) \
+-	X(jmpi_rw) X(jmpi_rd) X(jmpi_mw) X(jmpi_md) X(calli_rw) X(calli_rd) X(calli_mw) X(calli_md)
++	X(jmpi_rw) X(jmpi_rd) X(jmpi_mw) X(jmpi_md) X(calli_rw) X(calli_rd) X(calli_mw) X(calli_md) PD_X87(X)
+ #define PD_ENUM(n) PD_##n,
+ enum { PD_LIST(PD_ENUM) PD_N };
+ #undef PD_ENUM
+@@ -265,6 +271,22 @@
+ 		return p;
+ 	}
+ 	switch (op) {
++#ifdef PD_X87_ENABLED
++	case 0xd8 ... 0xdf:
++		MODRM();
++		if (m >= 0xc0) {
++			u->i = op - 0xd8;
++			*hi = PD_x87_reg;
++			return p;
++		}
++		/* DD /0, /2 and /3 move a double to or from the x87 stack. */
++		if (op == 0xdd && (u->r == 0 || u->r == 2 || u->r == 3)) {
++			EA();
++			*hi = PD_x87_mem;
++			return p;
++		}
++		return NULL;
++#endif
+ 	case 0x0f:
+ 		op = *p++;
+ 		if (op >= 0x80 && op <= 0x8f) {   // Jcc rel16/32
+--- a/fast/fast_pd_ops.h
++++ b/fast/fast_pd_ops.h
+@@ -391,6 +391,31 @@
+ 	ins = bh + pu->ip;
+ 	goto slow;
+ 
++#ifdef PD_X87_ENABLED
++pd_x87_reg: {
++	if (unlikely(!cpu->fpu || (cpu->cr0 & 0xc))) goto pd_slow;
++	if (unlikely(!fpu_exec1(cpu->fpu, cpu, pu->i, pu->r, pu->rm))) goto pd_x87_fault;
++	PD_NEXT;
++}
++
++pd_x87_mem: {
++	if (unlikely(!cpu->fpu || (cpu->cr0 & 0xc))) goto pd_slow;
++	PD_EA(off);
++	bool store = pu->r != 0;
++	/* Keep stores spanning two code-tracking lines on the reference path. */
++	if (store && ((cpu->seg[pu->sg].base + off) & 127) > 120) goto pd_slow;
++	u8 *p;
++	PD_PTR(p, pu->sg, off, 8, store, pd_slow);
++	fpu_move_real64(cpu->fpu, pu->r, p);
++	PD_NEXT;
++}
++
++pd_x87_fault:
++	cpu->ip = EIP_OF(bh + pu->ip);
++	cpu->next_ip = EIP_OF(PD_NEXTIP);
++	goto fault;
++#endif
++
+ #undef PD_BEGIN
+ #undef PD_NEXTIP
+ #undef PD_NEXT
+--- a/fpu.c
++++ b/fpu.c
+@@ -532,6 +532,23 @@
+ 	}
+ }
+ 
++#if defined(__wasm__) && defined(FAST_PD) && !defined(USE_FLOAT80)
++/* FLD, FST and FSTP on eight bytes already validated as ordinary Wasm guest RAM. */
++void fpu_move_real64(FPU *fpu, int group, void *p)
++{
++	double value;
++	if (group == 0) {
++		__builtin_memcpy(&value, p, sizeof(value));
++		fppush(fpu, value);
++	} else {
++		value = fpget(fpu, 0);
++		__builtin_memcpy(p, &value, sizeof(value));
++		if (group == 3)
++			fppop(fpu);
++	}
++}
++#endif
++
+ bool fpu_exec2(FPU *fpu, void *cpu, bool opsz16, int op, int group, int seg, uword addr)
+ {
+ 	double a;
+--- a/fpu.h
++++ b/fpu.h
+@@ -11,4 +11,8 @@
+ bool fpu_exec1(FPU *fpu, void *cpu, int op, int group, unsigned int i);
+ bool fpu_exec2(FPU *fpu, void *cpu, bool opsz16, int op, int group, int seg, uword addr);
+ 
++#if defined(__wasm__) && defined(FAST_PD) && !defined(USE_FLOAT80)
++void fpu_move_real64(FPU *fpu, int group, void *p);
++#endif
++
+ #endif /* FPU_H */

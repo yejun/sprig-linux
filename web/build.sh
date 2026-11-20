@@ -25,9 +25,11 @@ fetch_tiny386 "$HERE"/web/patches/*.patch
 # web/patches/ change tiny386 for this build only (fetch_tiny386 above applies them):
 #   fast-pd-compare-branch  a CMP or TEST and the JNE, JAE or JE after it run as one step
 #   vbe-indexed-scanline    the console's 256-colour lines are drawn by a loop of their own
+#   x87-predecode           x87 register instructions and FLD/FST/FSTP of doubles run in decoded blocks
+#                           (without it, every x87 instruction left its block: awk 14% slower than without
+#                           pre-decoding)
 # Measured in Sprig 1.6.1 (2026-11-19), against the fast path alone: gzip, md5sum, shell loops, ls -lR and
-# starting programs take 16 to 24% less time; awk's floating point takes 14% more (pre-decoding hands every
-# x87 instruction back to the interpreter).
+# starting programs take 16 to 26% less time, awk's floating point 15%.
 T=$WORK/tiny386-$TINY386/wasm
 mapfile -t SRCS < <(sed -n '/^SRCS/,/^$/p' "$T/Makefile" | tr -d '\\' | tr -s ' \t' '\n' | grep '\.c$' |
   grep -v fmopl | sed 's|^\.\./i386\.c$|../fast/fast.c|')
@@ -42,8 +44,9 @@ for s in "${SRCS[@]}"; do
 done
 for p in "${pids[@]}"; do wait "$p"; done   # (each, so that a failed compile stops the build)
 rm -rf "$SITE" && mkdir -p "$SITE"
-zig wasm-ld --gc-sections --export-dynamic --no-entry --strip-all --allow-undefined -o "$SITE/tiny386.wasm" \
-  "$WORK"/wasm-build/*.o
+# (the objects in the C locale's order, as on GitHub's runner: in another order the module comes out differently)
+mapfile -t OBJS < <(printf '%s\n' "$WORK"/wasm-build/*.o | LC_ALL=C sort)
+zig wasm-ld --gc-sections --export-dynamic --no-entry --strip-all --allow-undefined -o "$SITE/tiny386.wasm" "${OBJS[@]}"
 
 # the page, and the release's files it runs
 cp "$HERE"/web/{index.html,sprig.js,sprig.svg} "$SITE/"
