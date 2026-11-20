@@ -7,9 +7,10 @@ change the Linux kernel and BusyBox and are offered under those programs' licenc
 GPL-2.0-or-later; `dialog-patches/` change dialog, under its licence, LGPL-2.1.
 
 The web page (`web/`, on GitHub Pages) runs tiny386 compiled to WebAssembly: [tiny386](https://github.com/hchunhui/tiny386)
-a6a7893's emulator (with its fast path, `fast/`) and its `wasm/` port with its small C library, BSD-3-Clause
-(parts from QEMU and TinyEMU MIT, nanoprintf 0BSD), its licence beside it as `tiny386-LICENSE.txt`; without its
-LGPL sound synthesis (fmopl). The page's key table comes from tiny386's web page, which took it from
+a6a7893's emulator (with its fast path and pre-decoding, `fast/`) and its `wasm/` port with its small C library,
+BSD-3-Clause (parts from QEMU and TinyEMU MIT, nanoprintf 0BSD), its licence beside it as `tiny386-LICENSE.txt`;
+without its LGPL sound synthesis (fmopl). The patches in `web/patches/` change tiny386 for the page and are offered
+under the licences of the files they change. The page's key table comes from tiny386's web page, which took it from
 [v86](https://github.com/copy/v86) (BSD-2-Clause;
 the notice is in `web/sprig.js`). The page runs a release's own files, with that release's notices and sources.
 

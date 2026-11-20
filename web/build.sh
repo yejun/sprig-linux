@@ -17,8 +17,17 @@ fetch_tiny386 "$HERE"/web/patches/*.patch
 
 # tiny386's wasm/ port, as its Makefile builds it, compiled and linked by zig; without its sound chip's synthesis
 # (fmopl.c, LGPL: the page has no sound, and the AdLib card stays silent), so all of it is under
-# permissive licences (BSD-3-Clause, MIT); and with the CPU's fast path (fast/fast.c in i386.c's place, as
-# tiny386's make USE_FAST=y: gzip, md5sum and shell loops in Sprig run 2 to 3 times as fast as without)
+# permissive licences (BSD-3-Clause, MIT); and with the CPU's fast path (fast/fast.c in i386.c's place: gzip,
+# md5sum and shell loops in Sprig run 2 to 3 times as fast as without) and its pre-decoding (as tiny386's
+# make USE_FAST=pd), with 8 MB for the decoded blocks: its default of 2 MB fills up and is emptied over and over
+# when Linux starts programs, which made them slower than without pre-decoding.
+#
+# web/patches/ change tiny386 for this build only (fetch_tiny386 above applies them):
+#   fast-pd-compare-branch  a CMP or TEST and the JNE, JAE or JE after it run as one step
+#   vbe-indexed-scanline    the console's 256-colour lines are drawn by a loop of their own
+# Measured in Sprig 1.6.1 (2026-11-19), against the fast path alone: gzip, md5sum, shell loops, ls -lR and
+# starting programs take 16 to 24% less time; awk's floating point takes 14% more (pre-decoding hands every
+# x87 instruction back to the interpreter).
 T=$WORK/tiny386-$TINY386/wasm
 mapfile -t SRCS < <(sed -n '/^SRCS/,/^$/p' "$T/Makefile" | tr -d '\\' | tr -s ' \t' '\n' | grep '\.c$' |
   grep -v fmopl | sed 's|^\.\./i386\.c$|../fast/fast.c|')

@@ -58,9 +58,10 @@ publish.
 ## Web page
 
 `web/` is the page that runs Sprig Linux in a browser: `web/build.sh <release files> <version>` compiles tiny386's
-WebAssembly port (its `wasm/` directory, with zig) and puts it beside the release's `bzImage-fb`, `linuxstart.bin`
-and `root.img.gz` in `web/site/`. The page downloads them, unpacks the root file system in memory and starts the PC.
-`.github/workflows/pages.yml` publishes it on GitHub Pages whenever a release is published.
+WebAssembly port (its `wasm/` directory, with zig, its fast path and pre-decoding, and the patches in
+`web/patches/`) and puts it beside the release's `bzImage-fb`, `linuxstart.bin` and `root.img.gz` in `web/site/`.
+The page downloads them, unpacks the root file system in memory and starts the PC. `.github/workflows/pages.yml`
+publishes it on GitHub Pages whenever a release is published.
 
 ## Install on the Tab5 PC
 
